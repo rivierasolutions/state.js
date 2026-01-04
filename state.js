@@ -48,6 +48,7 @@ function scopeHierarchyVisitor(rootScope, visit) {
     {
       acceptNode: (node) => (node.hasAttribute('state-scope') 
             || node.hasAttribute('state-if')
+            || node.hasAttribute('state-if-not')
             || node.hasAttribute('state-foreach')
             || node.hasAttribute('state-content')
             || node.hasAttribute('state-listen')
@@ -156,6 +157,11 @@ function visitAndBuild(node, scope, walker, listItemScopeTemplates) {
         const stateIf = buildJSONPath(scope.children, jsonPath, stateIfFactory());
         stateIf.bindings.set(node, { outerHtml: node.outerHTML });
     }
+    if (node.hasAttribute('state-if-not')) {
+        const jsonPath = node.getAttribute('state-if-not');
+        const stateIf = buildJSONPath(scope.children, jsonPath, stateIfFactory());
+        stateIf.bindings.set(node, { outerHtml: node.outerHTML });
+    }
     if (node.hasAttribute('state-foreach')) {
         const jsonPath = node.getAttribute('state-foreach');
         const stateForeach = buildJSONPath(scope.children, jsonPath, stateForeachFactory());
@@ -205,6 +211,36 @@ function visitAndApply(node, scope, rootScope, walker) {
             return result;
 
         } else if (stateIf.value && node.tagName === 'STATE-IF-PLACEHOLDER') {
+
+            const range = document.createRange();
+            const fragment = range.createContextualFragment(stateIf.bindings.get(node).outerHtml);
+            const content = fragment.firstElementChild;
+
+            stateIf.bindings.set(content, stateIf.bindings.get(node));
+            stateIf.bindings.delete(node);
+
+            node.replaceWith(content);
+            walker.currentNode = content;
+            node = content;
+        }
+    }
+    if (node.hasAttribute('state-if-not')) {
+        const jsonPath = node.getAttribute('state-if-not');
+        const stateIf = getJSONPath((isAbsoluteJSONPath(jsonPath) ? rootScope : scope).children, jsonPath);
+
+        if (stateIf.value && node.tagName !== 'STATE-IF-PLACEHOLDER') {
+
+            const placeholder = document.createElement('state-if-placeholder');
+            placeholder.setAttribute("state-if-not", jsonPath);
+
+            stateIf.bindings.set(placeholder, stateIf.bindings.get(node));
+            stateIf.bindings.delete(node);
+
+            node.replaceWith(placeholder);
+            walker.currentNode = placeholder;
+            return result;
+
+        } else if (!stateIf.value && node.tagName === 'STATE-IF-PLACEHOLDER') {
 
             const range = document.createRange();
             const fragment = range.createContextualFragment(stateIf.bindings.get(node).outerHtml);

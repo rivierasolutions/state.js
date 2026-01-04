@@ -7,7 +7,7 @@
         <state state-if="@.showMVC2"> MVC 2 </state> <br>
         <br>
         <state state-content="@.showMVC2"></state> <br>
-        <state state-if="@.showMVC2" state-content="@.someText" state-attr-class="@.buttonClass">Lorem ipsum dolor sit amet</state> <br>
+        <state state-if-not="@.showMVC2" state-content="@.someText" state-attr-class="@.buttonClass">Lorem ipsum dolor sit amet</state> <br>
         <ul>
             <li state-foreach="@.stateArray">
                 <state state-content="@.text"></state>, <state state-content="@.number"></state>
@@ -21,6 +21,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             let number = 0;
             let array = [ { text: 'aaa', number: 111 }, { text: 'bbb', number: 222 } ];
+
             document.state.build({ stateArray: array });
 
             document.state.current().onButtonClick.addEventListener('click', () => {
@@ -33,7 +34,7 @@
 
             setInterval(() => document.state.update({ 
                 showMVC2: !document.state.current().showMVC2,
-                buttonClass: document.state.current().buttonClass ? null : 'red' 
+                buttonClass: document.state.current().showMVC2 ? 'red' : null
             }), 2000);
         });
     </script>
