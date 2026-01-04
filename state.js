@@ -73,7 +73,7 @@ function domVisitor(rootElement, rootScope, visit) {
   }
 }
 
-function visitAndBuild(node, scope, walker, listItemScopeTemplates, idSequence) {
+function visitAndBuild(node, scope, walker, idSequence) {
     let result = undefined;
     if (node.hasAttribute('state-scope')) {
         const jsonPath = node.getAttribute('state-scope');
@@ -93,6 +93,7 @@ function visitAndBuild(node, scope, walker, listItemScopeTemplates, idSequence) 
         
         const placeholder = document.createElement('state-foreach-placeholder');
         placeholder.setAttribute("state-foreach", jsonPath);
+        placeholder.setAttribute("id", `state-auto-id-${++(idSequence.next)}`);
         const template = document.createElement('template');
         template.setAttribute('state-ignore', 'state-ignore');
         template.innerHTML = node.outerHTML;
@@ -183,18 +184,18 @@ function visitAndApply(node, scope, rootScope, walker) {
     if (node.hasAttribute('state-foreach')) {
         const jsonPath = node.getAttribute('state-foreach');
         const stateForeach = getJSONPath((isAbsoluteJSONPath(jsonPath) ? rootScope : scope), jsonPath);
-        // node.replaceChildren();
-        // if (stateForeach.value) {
-        //     (Array.isArray(stateForeach.value) ? stateForeach.value : [ stateForeach.value ]).forEach((item, index) => {
-        //         const range = document.createRange();
-        //         const fragment = range.createContextualFragment(stateForeach.bindings.get(node).outerHtml);
-        //         const domItem = fragment.firstElementChild;
-        //         item.element = domItem;
-        //         domItem.removeAttribute('state-foreach');
-        //         domItem.setAttribute('state-scope', `${jsonPath}[${index}]`);
-        //         node.appendChild(domItem);
-        //     });
-        // }
+        node.parentNode.querySelectorAll(`[state-foreach-id="${node.getAttribute("id")}"]`).forEach(el => el.remove());
+        if (stateForeach) {
+            (Array.isArray(stateForeach) ? stateForeach : [ stateForeach ]).map((item, index) => {
+                const range = document.createRange();
+                const fragment = range.createContextualFragment(node.querySelector("template").innerHTML);
+                const domItem = fragment.firstElementChild;
+                domItem.setAttribute("state-foreach-id", node.getAttribute("id"));
+                domItem.removeAttribute('state-foreach');
+                domItem.setAttribute('state-scope', `${jsonPath}[${index}]`);
+                return domItem;
+            }).reverse().forEach(i => node.after(i));
+        }
     }
     if (node.hasAttribute('state-content')) {
         const jsonPath = node.getAttribute('state-content');
@@ -214,17 +215,9 @@ document.state = {
 
         this._current = {};
         this._idSequence = { next: 0 };
-        const listItemScopeTemplates = [];
-        domVisitor(document.documentElement, this._current, (n,s,w) => visitAndBuild(n,s,w,listItemScopeTemplates,this._idSequence));
+        domVisitor(document.documentElement, this._current, (n,s,w) => visitAndBuild(n,s,w,this._idSequence));
 
         this._referenceState = structuredClone(this._current);
-
-        // while(listItemScopeTemplates.length) {
-        //     const listItemAndScopeTpl = listItemScopeTemplates.pop();
-        //     listItemAndScopeTpl.scopeTemplate.element = listItemAndScopeTpl.element;
-        //     domVisitor(listItemAndScopeTpl.scopeTemplate, (n,s,w) => visitAndBuild(n,s,w,listItemScopeTemplates));
-        //     listItemAndScopeTpl.scopeTemplate.element = null;
-        // }
 
         this.update(initialState);
     },
