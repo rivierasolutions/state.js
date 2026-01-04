@@ -181,6 +181,12 @@ function stateIfFactory() {
     return { $discriminator: 'state-if', value: false, bindings: new Map() };
 }
 
+function stateForeachFactory() {
+    const scopeTemplate = stateScopeFactory(null);
+    scopeTemplate.children.$index = stateContentFactory(null);
+    return { $discriminator: 'state-foreach', value: [], bindings: new Map(), scopeTemplate };
+}
+
 function stateContentFactory(element) {
     return { $discriminator: 'state-content', value: element?.textContent ?? "" };
 }
@@ -191,12 +197,6 @@ function stateAttrFactory(element, attrName) {
 
 function stateListenFactory(element) {
     return { $discriminator: 'state-listen', element };
-}
-
-function stateForeachFactory(element) {
-    const scopeTemplate = stateScopeFactory(null);
-    scopeTemplate.children.$index = stateContentFactory(null);
-    return { $discriminator: 'state-foreach', value: [], bindings: new Map(), scopeTemplate };
 }
 
 function visitAndBuild(node, scope, walker, listItemScopeTemplates) {
