@@ -73,6 +73,24 @@ function domVisitor(rootElement, rootScope, visit) {
   }
 }
 
+function domFactory(html) {
+    const range = document.createRange();
+    const fragment = range.createContextualFragment(html);
+    return fragment.firstElementChild;
+}
+
+function placeholderFactory(tag, htmlTemplate, attrs) {
+    const placeholder = document.createElement(tag);
+    const template = document.createElement('template');
+    template.setAttribute("state-ignore", "state-ignore");
+    template.innerHTML = htmlTemplate;
+    placeholder.appendChild(template);
+    Object.keys(attrs).forEach(k => {
+        placeholder.setAttribute(k, attrs[k]);
+    });
+    return placeholder;
+}
+
 function visitAndBuild(node, scope, walker, idSequence) {
     let result = undefined;
     if (node.hasAttribute('state-scope')) {
@@ -91,13 +109,7 @@ function visitAndBuild(node, scope, walker, idSequence) {
         const jsonPath = node.getAttribute('state-foreach');
         buildJSONPath(scope, jsonPath, []);
         
-        const placeholder = document.createElement('state-foreach-placeholder');
-        placeholder.setAttribute("state-foreach", jsonPath);
-        placeholder.setAttribute("id", `state-auto-id-${++(idSequence.next)}`);
-        const template = document.createElement('template');
-        template.setAttribute('state-ignore', 'state-ignore');
-        template.innerHTML = node.outerHTML;
-        placeholder.appendChild(template);
+        const placeholder = placeholderFactory('state-foreach-placeholder', node.outerHTML, { "state-foreach": jsonPath, id: `state-auto-id-${++(idSequence.next)}` });
         node.replaceWith(placeholder);
         walker.currentNode = placeholder;
     }
@@ -131,22 +143,14 @@ function visitAndApply(node, scope, rootScope, walker) {
 
         if (!stateIf && node.tagName !== 'STATE-IF-PLACEHOLDER') {
 
-            const placeholder = document.createElement('state-if-placeholder');
-            placeholder.setAttribute("state-if", jsonPath);
-            const template = document.createElement('template');
-            template.setAttribute("state-ignore", "state-ignore");
-            template.innerHTML = node.outerHTML;
-            placeholder.appendChild(template);
-
+            const placeholder = placeholderFactory('state-if-placeholder', node.outerHTML, { "state-if": jsonPath });
             node.replaceWith(placeholder);
             walker.currentNode = placeholder;
             return result;
 
         } else if (stateIf && node.tagName === 'STATE-IF-PLACEHOLDER') {
 
-            const range = document.createRange();
-            const fragment = range.createContextualFragment(node.querySelector('template').innerHTML);
-            const content = fragment.firstElementChild;
+            const content = domFactory(node.querySelector('template').innerHTML);
 
             node.replaceWith(content);
             walker.currentNode = content;
@@ -159,22 +163,14 @@ function visitAndApply(node, scope, rootScope, walker) {
 
         if (stateIf && node.tagName !== 'STATE-IF-PLACEHOLDER') {
 
-            const placeholder = document.createElement('state-if-placeholder');
-            placeholder.setAttribute("state-if-not", jsonPath);
-            const template = document.createElement('template');
-            template.setAttribute("state-ignore", "state-ignore");
-            template.innerHTML = node.outerHTML;
-            placeholder.appendChild(template);
-
+            const placeholder = placeholderFactory('state-if-placeholder', node.outerHTML, { "state-if-not": jsonPath });
             node.replaceWith(placeholder);
             walker.currentNode = placeholder;
             return result;
 
         } else if (!stateIf && node.tagName === 'STATE-IF-PLACEHOLDER') {
 
-            const range = document.createRange();
-            const fragment = range.createContextualFragment(node.querySelector('template').innerHTML);
-            const content = fragment.firstElementChild;
+            const content = domFactory(node.querySelector('template').innerHTML);
 
             node.replaceWith(content);
             walker.currentNode = content;
@@ -187,9 +183,7 @@ function visitAndApply(node, scope, rootScope, walker) {
         node.parentNode.querySelectorAll(`[state-foreach-id="${node.getAttribute("id")}"]`).forEach(el => el.remove());
         if (stateForeach) {
             (Array.isArray(stateForeach) ? stateForeach : [ stateForeach ]).map((item, index) => {
-                const range = document.createRange();
-                const fragment = range.createContextualFragment(node.querySelector("template").innerHTML);
-                const domItem = fragment.firstElementChild;
+                const domItem = domFactory(node.querySelector("template").innerHTML);
                 domItem.setAttribute("state-foreach-id", node.getAttribute("id"));
                 domItem.removeAttribute('state-foreach');
                 domItem.setAttribute('state-scope', `${jsonPath}[${index}]`);
