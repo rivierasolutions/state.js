@@ -79,6 +79,59 @@ function scopeHierarchyVisitor(rootScope, visit) {
   }
 }
 
+function stateRawValuesVisitor(rootScope) {
+    let result = {};
+    let objectsToVisit = [ { state: rootScope.children, res: result } ];
+    while(objectsToVisit.length) {
+        let pair = objectsToVisit.pop();
+        Object.keys(pair.state).forEach(pname => {
+            let prop = pair.state[pname];
+            if (!prop.$discriminator) {
+                if (!pair.res.hasOwnProperty(pname)) {
+                    pair.res[pname] = {};
+                }
+                objectsToVisit.push({ state: prop, res: pair.res[pname] });
+            }
+            if (prop.$discriminator === 'state-scope') {
+                if (!pair.res.hasOwnProperty(pname)) {
+                    pair.res[pname] = {};
+                }
+                objectsToVisit.push({ oldS: prop.children, newS: pair.res[pname] });
+            }
+            if (prop.$discriminator === 'state-if') {
+                if (!pair.res.hasOwnProperty(pname)) {
+                    pair.res[pname] = prop.value;
+                }
+            }
+            if (prop.$discriminator === 'state-foreach') {
+                pair.res[pname] = [];
+                if (prop.value) {
+                    (Array.isArray(prop.value) ? prop.value : [ prop.value ]).forEach(item => {
+                        pair.res[pname].push({});
+                        objectsToVisit.push({ state: item.children, res: pair.res[pname][pair.res[pname].length-1] });
+                    });
+                }
+            }
+            if (prop.$discriminator === 'state-content') {
+                if (!pair.res.hasOwnProperty(pname)) {
+                    pair.res[pname] = prop.value;
+                }
+            }
+            if (prop.$discriminator === 'state-attr') {
+                if (!pair.res.hasOwnProperty(pname)) {
+                    pair.res[pname] = prop.value;
+                }
+            }
+            if (prop.$discriminator === 'state-listen') {
+                if (!pair.res.hasOwnProperty(pname)) {
+                    pair.res[pname] = prop.element;
+                }
+            }
+        });
+    }
+    return result;
+}
+
 function stateUpdateVisitor(rootScope, newState) {
     if (newState) {
         let objectsToVisit = [ { oldS: rootScope.children, newS: newState } ];
@@ -301,66 +354,14 @@ document.state = {
         this.update(initialState);
     },
     current: function() {
-        let result = {};
-        let objectsToVisit = [ { state: document.state._current.children, res: result } ];
-        while(objectsToVisit.length) {
-            let pair = objectsToVisit.pop();
-            Object.keys(pair.state).forEach(pname => {
-                let prop = pair.state[pname];
-                if (!prop.$discriminator) {
-                    if (!pair.res.hasOwnProperty(pname)) {
-                        pair.res[pname] = {};
-                    }
-                    objectsToVisit.push({ state: prop, res: pair.res[pname] });
-                }
-                if (prop.$discriminator === 'state-scope') {
-                    if (!pair.res.hasOwnProperty(pname)) {
-                        pair.res[pname] = {};
-                    }
-                    objectsToVisit.push({ oldS: prop.children, newS: pair.res[pname] });
-                }
-                if (prop.$discriminator === 'state-if') {
-                    if (!pair.res.hasOwnProperty(pname)) {
-                        pair.res[pname] = prop.value;
-                    }
-                }
-                if (prop.$discriminator === 'state-foreach') {
-                    pair.res[pname] = [];
-                    if (prop.value) {
-                        (Array.isArray(prop.value) ? prop.value : [ prop.value ]).forEach(item => {
-                            pair.res[pname].push({});
-                            objectsToVisit.push({ state: item.children, res: pair.res[pname][pair.res[pname].length-1] });
-                        });
-                    }
-                }
-                if (prop.$discriminator === 'state-content') {
-                    if (!pair.res.hasOwnProperty(pname)) {
-                        pair.res[pname] = prop.value;
-                    }
-                }
-                if (prop.$discriminator === 'state-attr') {
-                    if (!pair.res.hasOwnProperty(pname)) {
-                        pair.res[pname] = prop.value;
-                    }
-                }
-                if (prop.$discriminator === 'state-listen') {
-                    if (!pair.res.hasOwnProperty(pname)) {
-                        pair.res[pname] = prop.element;
-                    }
-                }
-            });
-        }
-        return result;
+        return stateRawValuesVisitor(document.state._current);
     },
     apply: function() {
-        const state = document.state._current;
-
-        scopeHierarchyVisitor(state, (n,s,w) => visitAndApply(n,s,state,w));
+        scopeHierarchyVisitor(document.state._current, (n,s,w) => visitAndApply(n,s,document.state._current,w));
     },
     update: function(newState) {
 
         stateUpdateVisitor(document.state._current, newState);
-
         document.state.apply();
     }
 };
