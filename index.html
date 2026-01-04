@@ -1,0 +1,40 @@
+<html lang="en">
+    <head>
+        <style>.red { color: red; }</style>
+    </head>
+    <body>
+        Hello World! <br>
+        <state state-if="@.showMVC2"> MVC 2 </state> <br>
+        <br>
+        <state state-content="@.showMVC2"></state> <br>
+        <state state-if="@.showMVC2" state-content="@.someText" state-attr-class="@.buttonClass">Lorem ipsum dolor sit amet</state> <br>
+        <ul>
+            <li state-foreach="@.stateArray">
+                <state state-content="@.text"></state>, <state state-content="@.number"></state>
+            </li>
+        </ul>
+        <br>
+        <button state-attr-class="@.buttonClass" state-listen="@.onButtonClick">Click me</button>
+    </body>
+    <script lang="javascript" src="file://wsl.localhost/Ubuntu-24.04/home/piotrek/MVC2sandbox/state.js"></script>
+    <script lang="javascript">
+        document.addEventListener('DOMContentLoaded', () => {
+            let number = 0;
+            let array = [ { text: 'aaa', number: 111 }, { text: 'bbb', number: 222 } ];
+            document.state.build({ stateArray: array });
+
+            document.state.current().onButtonClick.addEventListener('click', () => {
+                array.push({ text: 'added', number: 303 });
+                document.state.update({
+                    someText: `Lorem ipsum dolor sit amet ${++number}`,
+                    stateArray: array
+                });
+            });
+
+            setInterval(() => document.state.update({ 
+                showMVC2: !document.state.current().showMVC2,
+                buttonClass: document.state.current().buttonClass ? null : 'red' 
+            }), 2000);
+        });
+    </script>
+</html>
