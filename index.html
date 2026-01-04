@@ -24,7 +24,7 @@
 
             document.state.build({ stateArray: array });
 
-            document.state.current().onButtonClick.addEventListener('click', () => {
+            document.getElementById(document.state.current().onButtonClick).addEventListener('click', () => {
                 array.push({ text: 'added', number: 303 });
                 document.state.update({
                     someText: `Lorem ipsum dolor sit amet ${++number}`,
