@@ -10,7 +10,12 @@
         <state state-if-not="@.showMVC2" state-content="@.someText" state-attr-class="@.buttonClass">Lorem ipsum dolor sit amet</state> <br>
         <ul>
             <li state-foreach="@.stateArray">
-                <state state-content="@.text"></state>, <state state-content="@.number"></state>
+                <state state-content="@.text"></state>
+                <ul>
+                    <li state-foreach="@.numberArray" state-attr-class="@.numberClass">
+                        <state state-content="@.number"></state>
+                    </li>
+                </ul>
             </li>
         </ul>
         <br>
@@ -20,12 +25,12 @@
     <script lang="javascript">
         document.addEventListener('DOMContentLoaded', () => {
             let number = 0;
-            let array = [ { text: 'aaa', number: 111 }, { text: 'bbb', number: 222 } ];
+            let array = [ { text: 'aaa', numberArray: [{ number: 111 }] }, { text: 'bbb', numberArray: [{ number: 222, numberClass: 'red' }] } ];
 
             document.state.build({ stateArray: array });
 
             document.getElementById(document.state.current().onButtonClick).addEventListener('click', () => {
-                array.push({ text: 'added', number: 303 });
+                array.push({ text: 'added', numberArray: [{ number: 303, numberClass: 'red' }, { number: 404 }] });
                 document.state.update({
                     someText: `Lorem ipsum dolor sit amet ${++number}`,
                     stateArray: array

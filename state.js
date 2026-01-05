@@ -73,10 +73,12 @@ function domVisitor(rootElement, rootScope, visit) {
   }
 }
 
-function placeholderFactory(tag, attrs) {
+function placeholderFactory(tag, attrs, ignore = true) {
     const placeholder = document.createElement(tag);
     const template = document.createElement('template');
-    template.setAttribute("state-ignore", "state-ignore");
+    if (ignore) {
+        template.setAttribute("state-ignore", "state-ignore");
+    }
     placeholder.appendChild(template);
     Object.keys(attrs).forEach(k => {
         placeholder.setAttribute(k, attrs[k]);
@@ -84,11 +86,12 @@ function placeholderFactory(tag, attrs) {
     return placeholder;
 }
 
-function visitAndBuild(node, scope, walker, idSequence) {
+function visitAndBuild(node, scope, walker, idSequence, foreachItemTemplates) {
     let result = undefined;
     if (node.hasAttribute('state-scope')) {
         const jsonPath = node.getAttribute('state-scope');
         result = { scope: buildJSONPath(scope, jsonPath, {}), element: node };
+        scope = result.scope;
     }
     if (node.hasAttribute('state-if')) {
         const jsonPath = node.getAttribute('state-if');
@@ -102,10 +105,12 @@ function visitAndBuild(node, scope, walker, idSequence) {
         const jsonPath = node.getAttribute('state-foreach');
         buildJSONPath(scope, jsonPath, []);
         
-        const placeholder = placeholderFactory('state-foreach-placeholder', { "state-foreach": jsonPath, id: `state-auto-id-${++(idSequence.next)}` });
+        const placeholder = placeholderFactory('state-foreach-placeholder', { "state-foreach": jsonPath, id: `state-auto-id-${++(idSequence.next)}` }, false);
+        node.removeAttribute('state-foreach');
         node.replaceWith(placeholder);
         placeholder.querySelector('template').appendChild(node);
         walker.currentNode = placeholder;
+        foreachItemTemplates.push(placeholder.querySelector('template'));
     }
     if (node.hasAttribute('state-content')) {
         const jsonPath = node.getAttribute('state-content');
@@ -130,6 +135,7 @@ function visitAndApply(node, scope, rootScope, walker) {
     if (node.hasAttribute('state-scope')) {
         const jsonPath = node.getAttribute('state-scope');
         result = { scope: getJSONPath(scope, jsonPath), element: node };
+        scope = result.scope;
     }
     if (node.hasAttribute('state-if')) {
         const jsonPath = node.getAttribute('state-if');
@@ -181,7 +187,6 @@ function visitAndApply(node, scope, rootScope, walker) {
             (Array.isArray(stateForeach) ? stateForeach : [ stateForeach ]).map((item, index) => {
                 const domItem = node.querySelector("template").firstElementChild.cloneNode(true);
                 domItem.setAttribute("state-foreach-id", node.getAttribute("id"));
-                domItem.removeAttribute('state-foreach');
                 domItem.setAttribute('state-scope', `${jsonPath}[${index}]`);
                 return domItem;
             }).reverse().forEach(i => node.after(i));
@@ -205,7 +210,11 @@ document.state = {
 
         this._current = {};
         this._idSequence = { next: 0 };
-        domVisitor(document.documentElement, this._current, (n,s,w) => visitAndBuild(n,s,w,this._idSequence));
+        const foreachItemTemplates = [];
+        domVisitor(document.documentElement, this._current, (n,s,w) => visitAndBuild(n,s,w,this._idSequence,foreachItemTemplates));
+        foreachItemTemplates.forEach(el => {
+            el.setAttribute('state-ignore', 'state-ignore');
+        });
 
         this._referenceState = structuredClone(this._current);
 
