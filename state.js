@@ -53,16 +53,16 @@ function domVisitor(rootElement, rootScope, visit) {
     }
   );
 
-  const stack = [ { scope: rootScope, element: rootElement } ];
+  const stack = [ { scope: rootScope, element: rootElement, absPath: '$' } ];
 
   while (walker.nextNode()) {
     const currentNode = walker.currentNode;
     while (true) {
-        const scopeAndElem = stack[stack.length-1];
+        const scopeTuple = stack[stack.length-1];
         
-        if (scopeAndElem.element !== currentNode && scopeAndElem.element.contains(currentNode)) {
-            const newScopeAndElem = visit(currentNode, scopeAndElem.scope, walker);
-            if (newScopeAndElem && newScopeAndElem.scope && newScopeAndElem.element) {
+        if (scopeTuple.element !== currentNode && scopeTuple.element.contains(currentNode)) {
+            const newScopeAndElem = visit(currentNode, scopeTuple.scope, scopeTuple.absPath, walker);
+            if (newScopeAndElem && newScopeAndElem.scope && newScopeAndElem.element && newScopeAndElem.absPath) {
                 stack.push(newScopeAndElem);
             }
             break;
@@ -86,20 +86,20 @@ function placeholderFactory(tag, attrs, ignore = true) {
     return placeholder;
 }
 
-function visitAndBuild(node, scope, walker, idSequence, foreachItemTemplates) {
+function register(registry, absPath, type, element) {
+    if (!registry.has(absPath)) {
+        registry.set(absPath, []);
+    }
+    registry.get(absPath).push({ stateType: type, element });
+}
+
+function visitAndBuild(node, scope, absPath, walker, idSequence, registry, foreachItemTemplates) {
     let result = undefined;
     if (node.hasAttribute('state-scope')) {
         const jsonPath = node.getAttribute('state-scope');
-        result = { scope: buildJSONPath(scope, jsonPath, {}), element: node };
+        result = { scope: /.*\[\]$/g.test(jsonPath) ? {} : buildJSONPath(scope, jsonPath, {}), element: node, absPath: jsonPath.replace('@', absPath) };
         scope = result.scope;
-    }
-    if (node.hasAttribute('state-if')) {
-        const jsonPath = node.getAttribute('state-if');
-        buildJSONPath(scope, jsonPath, false);
-    }
-    if (node.hasAttribute('state-if-not')) {
-        const jsonPath = node.getAttribute('state-if-not');
-        buildJSONPath(scope, jsonPath, false);
+        absPath = result.absPath;
     }
     if (node.hasAttribute('state-foreach')) {
         const jsonPath = node.getAttribute('state-foreach');
@@ -107,18 +107,34 @@ function visitAndBuild(node, scope, walker, idSequence, foreachItemTemplates) {
         
         const placeholder = placeholderFactory('state-foreach-placeholder', { "state-foreach": jsonPath, id: `state-auto-id-${++(idSequence.next)}` }, false);
         node.removeAttribute('state-foreach');
+        node.setAttribute('state-scope', `${jsonPath}[]`);
         node.replaceWith(placeholder);
         placeholder.querySelector('template').appendChild(node);
         walker.currentNode = placeholder;
         foreachItemTemplates.push(placeholder.querySelector('template'));
+
+        register(registry, jsonPath.replace('@', absPath), 'state-foreach', placeholder);
+        return result;
+    }
+    if (node.hasAttribute('state-if')) {
+        const jsonPath = node.getAttribute('state-if');
+        buildJSONPath(scope, jsonPath, false);
+        register(registry, jsonPath.replace('@', absPath), 'state-if', node);
+    }
+    if (node.hasAttribute('state-if-not')) {
+        const jsonPath = node.getAttribute('state-if-not');
+        buildJSONPath(scope, jsonPath, false);
+        register(registry, jsonPath.replace('@', absPath), 'state-if-not', node);
     }
     if (node.hasAttribute('state-content')) {
         const jsonPath = node.getAttribute('state-content');
         buildJSONPath(scope, jsonPath, node.textContent ?? '');
+        register(registry, jsonPath.replace('@', absPath), 'state-content', node);
     }
     Array.from(node.attributes).filter(attr => attr.name.startsWith('state-attr-')).forEach(attr => {
         const jsonPath = attr.value;
         buildJSONPath(scope, jsonPath, node.getAttribute(attr.name.replace('state-attr-', '')) ?? '');
+        register(registry, jsonPath.replace('@', absPath), attr, node);
     });
     if (node.hasAttribute('state-listen')) {
         const jsonPath = node.getAttribute('state-listen');
@@ -126,16 +142,18 @@ function visitAndBuild(node, scope, walker, idSequence, foreachItemTemplates) {
             node.setAttribute("id", `state-auto-id-${++(idSequence.next)}`)
         }
         buildJSONPath(scope, jsonPath, node.getAttribute("id"));
+        register(registry, jsonPath.replace('@', absPath), 'state-listen', node);
     }
     return result;
 }
 
-function visitAndApply(node, scope, rootScope, walker) {
+function visitAndApply(node, scope, absPath, walker, rootScope) {
     let result = undefined;
     if (node.hasAttribute('state-scope')) {
         const jsonPath = node.getAttribute('state-scope');
-        result = { scope: getJSONPath(scope, jsonPath), element: node };
+        result = { scope: getJSONPath(scope, jsonPath), element: node, absPath: jsonPath.replace('@', absPath) };
         scope = result.scope;
+        absPath = result.absPath;
     }
     if (node.hasAttribute('state-if')) {
         const jsonPath = node.getAttribute('state-if');
@@ -212,7 +230,8 @@ document.state = {
         this._current = {};
         this._idSequence = { next: 0 };
         const foreachItemTemplates = [];
-        domVisitor(document.documentElement, this._current, (n,s,w) => visitAndBuild(n,s,w,this._idSequence,foreachItemTemplates));
+        this._registry = new Map();
+        domVisitor(document.documentElement, this._current, (n,s,p,w) => visitAndBuild(n,s,p,w,this._idSequence,this._registry,foreachItemTemplates));
         foreachItemTemplates.forEach(el => {
             el.setAttribute('state-ignore', 'state-ignore');
         });
@@ -225,7 +244,7 @@ document.state = {
         return document.state._current;
     },
     apply: function() {
-        domVisitor(document.documentElement, document.state._current, (n,s,w) => visitAndApply(n,s,document.state._current,w));
+        domVisitor(document.documentElement, document.state._current, (n,s,p,w) => visitAndApply(n,s,p,w,document.state._current));
     },
     update: function(newState) {
 
