@@ -185,6 +185,7 @@ function visitAndApply(node, scope, rootScope, walker) {
         node.parentNode.querySelectorAll(`[state-foreach-id="${node.getAttribute("id")}"]`).forEach(el => el.remove());
         if (stateForeach) {
             (Array.isArray(stateForeach) ? stateForeach : [ stateForeach ]).map((item, index) => {
+                item.$index = index;
                 const domItem = node.querySelector("template").firstElementChild.cloneNode(true);
                 domItem.setAttribute("state-foreach-id", node.getAttribute("id"));
                 domItem.setAttribute('state-scope', `${jsonPath}[${index}]`);

@@ -13,7 +13,7 @@
                 <state state-content="@.text"></state>
                 <ul>
                     <li state-foreach="@.numberArray" state-attr-class="@.numberClass">
-                        <state state-content="@.number"></state>
+                        <state state-content="@.$index"></state>: <state state-content="@.number"></state>
                     </li>
                 </ul>
             </li>
