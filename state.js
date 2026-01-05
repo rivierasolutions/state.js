@@ -73,17 +73,10 @@ function domVisitor(rootElement, rootScope, visit) {
   }
 }
 
-function domFactory(html) {
-    const range = document.createRange();
-    const fragment = range.createContextualFragment(html);
-    return fragment.firstElementChild;
-}
-
-function placeholderFactory(tag, htmlTemplate, attrs) {
+function placeholderFactory(tag, attrs) {
     const placeholder = document.createElement(tag);
     const template = document.createElement('template');
     template.setAttribute("state-ignore", "state-ignore");
-    template.innerHTML = htmlTemplate;
     placeholder.appendChild(template);
     Object.keys(attrs).forEach(k => {
         placeholder.setAttribute(k, attrs[k]);
@@ -109,8 +102,9 @@ function visitAndBuild(node, scope, walker, idSequence) {
         const jsonPath = node.getAttribute('state-foreach');
         buildJSONPath(scope, jsonPath, []);
         
-        const placeholder = placeholderFactory('state-foreach-placeholder', node.outerHTML, { "state-foreach": jsonPath, id: `state-auto-id-${++(idSequence.next)}` });
+        const placeholder = placeholderFactory('state-foreach-placeholder', { "state-foreach": jsonPath, id: `state-auto-id-${++(idSequence.next)}` });
         node.replaceWith(placeholder);
+        placeholder.querySelector('template').appendChild(node);
         walker.currentNode = placeholder;
     }
     if (node.hasAttribute('state-content')) {
@@ -143,14 +137,15 @@ function visitAndApply(node, scope, rootScope, walker) {
 
         if (!stateIf && node.tagName !== 'STATE-IF-PLACEHOLDER') {
 
-            const placeholder = placeholderFactory('state-if-placeholder', node.outerHTML, { "state-if": jsonPath });
+            const placeholder = placeholderFactory('state-if-placeholder', { "state-if": jsonPath });
             node.replaceWith(placeholder);
+            placeholder.querySelector('template').appendChild(node);
             walker.currentNode = placeholder;
             return result;
 
         } else if (stateIf && node.tagName === 'STATE-IF-PLACEHOLDER') {
 
-            const content = domFactory(node.querySelector('template').innerHTML);
+            const content = node.querySelector('template').firstElementChild;
 
             node.replaceWith(content);
             walker.currentNode = content;
@@ -163,14 +158,15 @@ function visitAndApply(node, scope, rootScope, walker) {
 
         if (stateIf && node.tagName !== 'STATE-IF-PLACEHOLDER') {
 
-            const placeholder = placeholderFactory('state-if-placeholder', node.outerHTML, { "state-if-not": jsonPath });
+            const placeholder = placeholderFactory('state-if-placeholder', { "state-if-not": jsonPath });
             node.replaceWith(placeholder);
+            placeholder.querySelector('template').appendChild(node);
             walker.currentNode = placeholder;
             return result;
 
         } else if (!stateIf && node.tagName === 'STATE-IF-PLACEHOLDER') {
 
-            const content = domFactory(node.querySelector('template').innerHTML);
+            const content = node.querySelector('template').firstElementChild;
 
             node.replaceWith(content);
             walker.currentNode = content;
@@ -183,7 +179,7 @@ function visitAndApply(node, scope, rootScope, walker) {
         node.parentNode.querySelectorAll(`[state-foreach-id="${node.getAttribute("id")}"]`).forEach(el => el.remove());
         if (stateForeach) {
             (Array.isArray(stateForeach) ? stateForeach : [ stateForeach ]).map((item, index) => {
-                const domItem = domFactory(node.querySelector("template").innerHTML);
+                const domItem = node.querySelector("template").firstElementChild.cloneNode(true);
                 domItem.setAttribute("state-foreach-id", node.getAttribute("id"));
                 domItem.removeAttribute('state-foreach');
                 domItem.setAttribute('state-scope', `${jsonPath}[${index}]`);
