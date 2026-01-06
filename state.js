@@ -200,7 +200,7 @@
             }
             if (attrName === 'value' && node.tagName === 'INPUT') {
                 node.addEventListener('input', (event) => {
-                    setJSONPath(state._current, absPath, event.target.value);
+                    setJSONPath(state._current, jsonPath.replace('@', absPath), event.target.value);
                     state.update();
                 });
             }
