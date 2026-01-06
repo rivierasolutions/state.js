@@ -97,6 +97,10 @@
         state._bindings.get(absPath).set(element, type);
     }
 
+    function unregisterBinding(state, absPath, element) {
+        state._bindings.has(absPath) && state._bindings.get(absPath).delete(element);
+    }
+
     function registerStateForeachBinding(state, relPath, type, element, statForeachRootScope) {
         const id = statForeachRootScope.parentElement.getAttribute('id');
         if (!state._stateForeachItemBindings.has(id)) {
@@ -122,31 +126,31 @@
         if (element.tagName === 'SELECT') {
             element.addEventListener('change', (event) => {
                 setJSONPath(state._current, absPath, event.target.value);
-                state.update();
+                state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.value }]);
             });
         }
         else if (element.getAttribute('contenteditable') === 'true') {
             element.addEventListener('input', (event) => {
                 setJSONPath(state._current, absPath, event.target.textContent);
-                state.update();
+                state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.textContent }]);
             });
         }
         else if (element.tagName === 'INPUT' && (element.getAttribute('type') === 'checkbox' || element.getAttribute('type') === 'radio')) {
             element.addEventListener('change', (event) => {
                 setJSONPath(state._current, absPath, event.target.checked);
-                state.update();
+                state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.checked }]);
             });
         }
         else if (element.tagName === 'INPUT' && element.getAttribute('type') === 'file') {
             element.addEventListener('change', (event) => {
                 setJSONPath(state._current, absPath, event.target.files);
-                state.update();
+                state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.files }]);
             });
         }
         else if ((element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' )) {
             element.addEventListener('input', (event) => {
                 setJSONPath(state._current, absPath, event.target.value);
-                state.update();
+                state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.value }]);
             });
         }
     }
@@ -155,7 +159,7 @@
         if (element.tagName === 'DETAILS') {
             element.addEventListener('toggle', (event) => {
                 setJSONPath(state._current, absPath, event.target.open);
-                state.update();
+                state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.open }]);
             });
         }
     }
@@ -269,6 +273,9 @@
         const stateType = elementMap.get(elementOrPath);
         const stateValue = getJSONPath(state._current, absPath);
         const element = (stateForeachItemRoot && Array.isArray(elementOrPath)) ? elementOrPath.reduce((el,child) => el.children[child], stateForeachItemRoot) : elementOrPath;
+        if (stateForeachItemRoot) {
+            registerBinding(state, absPath, stateType, element);
+        }
 
         if (stateType === 'state-content') {    
             element.textContent = stateValue;
@@ -325,7 +332,10 @@
         }
         else if (stateType === 'state-foreach') {
             const stateTemplate = state._stateForeachItemBindings.get(element.getAttribute("id"));
-            element.parentNode.querySelectorAll(`[state-foreach-id="${element.getAttribute("id")}"]`).forEach(el => el.remove());
+            element.parentNode.querySelectorAll(`[state-foreach-id="${element.getAttribute("id")}"]`).forEach((el, index) => {
+                Array.from(stateTemplate.keys()).map(path => path.replace('@', `${absPath}[${index}]`)).forEach(path => unregisterBinding(state, path, el));
+                el.remove();
+            });
             if (stateValue) {
                 (Array.isArray(stateValue) ? stateValue : [ stateValue ]).map((item, index) => {
                     item.$index = index;
@@ -345,6 +355,61 @@
             }
         }
     }
+
+    function mergeAndBuildChangeIndex(oldState, newState) {
+        const changeIndex = [];
+        if (newState && newState instanceof Object) {
+            const toMerge = [ { path: "$", src: oldState, dst: newState } ];
+            while (toMerge.length) {
+                const tuple = toMerge.pop();
+                if (tuple.src !== tuple.dst) {
+                    changeIndex.push(tuple);
+                }
+                Object.keys(tuple.dst).forEach(key => {
+                    if (!tuple.src.hasOwnProperty(key)) {
+                        return;
+                    }
+                    const path = `${tuple.path}.${key}`;
+                    if (Array.isArray(tuple.src[key])) {
+                        let anyItemChanges = false;
+                        if (!Array.isArray(tuple.dst[key])) {
+                            anyItemChanges = true;
+                            if (tuple.src[key].length && tuple.dst[key] instanceof Object) {
+                                toMerge.push({ path: `${path}[0]`, src: tuple.src[key][0], dst: tuple.dst[key] });
+                            }
+                        } else if (tuple.src[key].length !== tuple.dst[key].length) {
+                            anyItemChanges = true;
+                            for (let i=0; i<Math.max(tuple.src[key].length, tuple.dst[key].length); ++i) {
+                                if (tuple.src[key].at(i) && tuple.dst[key].at(i) instanceof Object) {
+                                    toMerge.push({ path: `${path}[${i}]`, src: tuple.src[key].at(i), dst: tuple.dst[key].at(i) });
+                                }
+                            }
+                        } else {
+                            tuple.dst[key].forEach((item, i) => {
+                                anyItemChanges = (tuple.src[key][i] !== item);
+                                if (item instanceof Object) {
+                                    toMerge.push({ path: `${path}[${i}]`, src: tuple.src[key][i], dst: item });
+                                }
+                            });
+                        }
+                        if (anyItemChanges) {
+                            changeIndex.push({ path, src: tuple.src[key], dst: tuple.dst[key] });
+                            tuple.src[key] = Array.isArray(tuple.dst[key]) ? tuple.dst[key].slice() : [ tuple.dst[key] ];
+                        }
+                    } else {
+                        if (tuple.src[key] !== tuple.dst[key]) {
+                            changeIndex.push({ path, src: tuple.src[key], dst: tuple.dst[key] });
+                            tuple.src[key] = tuple.dst[key];
+                        }
+                    }
+                    if (tuple.dst[key] instanceof Object && !Array.isArray(tuple.dst[key])) {
+                        toMerge.push({ path, src: tuple.src[key], dst: tuple.dst[key] });
+                    }
+                });
+            }
+        }
+        return changeIndex;
+    }
     
     function load(rootElement, initialState) {
         rootElement.state = {
@@ -353,30 +418,30 @@
             },
             update: function(newState) {
 
-                if (newState && newState instanceof Object) {
-                    const toMerge = [ { src: this._current, dst: newState } ];
-                    while (toMerge.length) {
-                        const pair = toMerge.pop();
-                        Object.keys(pair.dst).forEach(p => {
-                            if (pair.dst[p] instanceof Object && pair.src.hasOwnProperty(p)) {
-                                toMerge.push({ src: pair.src[p], dst: pair.dst[p] });
-                            }
-                        });
-                        Object.assign(pair.src, pair.dst);
-                    }
-                }
+                const changes = mergeAndBuildChangeIndex(this._current, newState);
 
-                this.apply();
+                this.apply(changes);
 
                 rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
             },
-            apply: function() {
-                Array.from(this._bindings.keys()).forEach(absPath => {
-                    const elementMap = this._bindings.get(absPath);
-                    Array.from(elementMap.keys()).forEach(element => {
-                        applyState(this, elementMap, absPath, element);
+            apply: function(changes) {
+                if (!changes && !Array.isArray(changes)) {
+                    Array.from(this._bindings.keys()).forEach(absPath => {
+                        const elementMap = this._bindings.get(absPath);
+                        Array.from(elementMap.keys()).forEach(element => {
+                            applyState(this, elementMap, absPath, element);
+                        });
                     });
-                });
+                } else {
+                    changes.forEach(({ path, src, dst }) => {
+                        if (this._bindings.has(path)) {
+                            const elementMap = this._bindings.get(path);
+                            Array.from(elementMap.keys()).forEach(element => {
+                                applyState(this, elementMap, path, element);
+                            });
+                        }
+                    });
+                }
             },
             subState(element, initialSubState) {
                 return load(element, initialSubState);
@@ -390,7 +455,9 @@
 
         if (!((rootElement == document ? rootElement.documentElement : rootElement).hasAttribute('state-ignore'))) {
             domVisitor(rootElement, rootElement.state._current, (ctx) => visitAndBuild(ctx,rootElement.state));
-            rootElement.state.update(initialState);
+
+            mergeAndBuildChangeIndex(rootElement.state._current, initialState);
+            rootElement.state.apply();
         }
         rootElement.dispatchEvent(new CustomEvent(`StateLoaded`));
         return rootElement.state;
