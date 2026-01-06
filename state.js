@@ -61,7 +61,7 @@
             }
         );
 
-        const stack = [ { scope: rootScope, scopeRootElement: rootElement, absJsonPath: '$' } ];
+        const stack = [ { scope: rootScope, scopeRootElement: rootElement, absJsonPath: '$', isStateForeachItemScope: false } ];
 
         while (walker.nextNode()) {
             const element = walker.currentNode;
@@ -81,27 +81,24 @@
         }
     }
 
-    function registerBinding(state, absPath, type, element, relPath, scope) {
-        if (scope.$stateForeachScopeRoot) {
-            const id = scope.$stateForeachScopeRoot.parentElement.parentElement.getAttribute('id');
-            if (!state._stateForeachItemBindings.has(id)) {
-                state._stateForeachItemBindings.set(id, new Map());
-            }
-            registerStateForeachBinding(state._stateForeachItemBindings.get(id), relPath, type, element, scope.$stateForeachScopeRoot);
-            return;
-        }
+    function registerBinding(state, absPath, type, element) {
         if (!state._bindings.has(absPath)) {
             state._bindings.set(absPath, new Map());
         }
         state._bindings.get(absPath).set(element, type);
     }
 
-    function registerStateForeachBinding(stateForeachItemBindings, relPath, type, element, listScopeRoot) {
-        if (!stateForeachItemBindings.has(relPath)) {
-            stateForeachItemBindings.set(relPath, new Map());
+    function registerStateForeachBinding(state, relPath, type, element, statForeachRootScope) {
+        const id = statForeachRootScope.parentElement.parentElement.getAttribute('id');
+        if (!state._stateForeachItemBindings.has(id)) {
+            state._stateForeachItemBindings.set(id, new Map());
+        }
+        itemBindings = state._stateForeachItemBindings.get(id);
+        if (!itemBindings.has(relPath)) {
+            itemBindings.set(relPath, new Map());
         }
         const path = [];
-        while (element && element !== listScopeRoot) {
+        while (element && element !== statForeachRootScope) {
             if (!element.parentElement) {
                 break;
             }
@@ -109,66 +106,98 @@
             path.unshift(index);
             element = element.parentElement;
         }
-        stateForeachItemBindings.get(relPath).set(path, type);
+        itemBindings.get(relPath).set(path, type);
     }
 
     function visitAndBuild(visitContext, state) {
         const node = visitContext.element;
-        const walker = visitContext.walker;
-        const idSequence = state._idSequence;
         let scope = visitContext.scope;
+        let scopeRootElement = visitContext.scopeRootElement;
         let absPath = visitContext.absJsonPath;
+        let isStateForeachItemScope = visitContext.isStateForeachItemScope;
         let result = undefined;
 
         if (node.hasAttribute('state-scope')) {
             const jsonPath = node.getAttribute('state-scope');
             const isArrayScope = /.*\[\]$/g.test(jsonPath);
-            result = { scope: isArrayScope ? { $stateForeachScopeRoot: node } : buildJSONPath(scope, jsonPath, {}), scopeRootElement: node, absJsonPath: jsonPath.replace('@', absPath) };
+            result = { 
+                scope: isArrayScope ? {} : buildJSONPath(scope, jsonPath, {}),
+                scopeRootElement: node,
+                absJsonPath: jsonPath.replace('@', absPath),
+                isStateForeachItemScope: isArrayScope
+            };
             scope = result.scope;
+            scopeRootElement = result.scopeRootElement;
             absPath = result.absPath;
+            isStateForeachItemScope = result.isStateForeachItemScope;
         }
         if (node.hasAttribute('state-foreach')) {
             const jsonPath = node.getAttribute('state-foreach');
-            buildJSONPath(scope, jsonPath, []);
+            if (!isStateForeachItemScope) {
+                buildJSONPath(scope, jsonPath, []);
+            }
             
-            const placeholder = placeholderFactory('state-foreach-placeholder', { "state-foreach": jsonPath, id: `state-auto-id-${++(idSequence.next)}` });
+            const placeholder = placeholderFactory('state-foreach-placeholder', { "state-foreach": jsonPath, id: `state-auto-id-${++(state._idSequence.next)}` });
             node.removeAttribute('state-foreach');
             node.setAttribute('state-scope', `${jsonPath}[]`);
             node.replaceWith(placeholder);
             placeholder.querySelector('template').appendChild(node);
-            walker.currentNode = placeholder;
+            visitContext.walker.currentNode = placeholder;
 
-            registerBinding(state, jsonPath.replace('@', absPath), 'state-foreach', placeholder, jsonPath, scope);
+            if (isStateForeachItemScope) {
+                registerStateForeachBinding(state, jsonPath, 'state-foreach', placeholder, scopeRootElement)
+            } else {
+                registerBinding(state, jsonPath.replace('@', absPath), 'state-foreach', placeholder);
+            }
             return result;
         }
         if (node.hasAttribute('state-if')) {
             const jsonPath = node.getAttribute('state-if');
-            buildJSONPath(scope, jsonPath, false);
-            
-            registerBinding(state, jsonPath.replace('@', absPath), 'state-if', node, jsonPath, scope);
+            if (!isStateForeachItemScope) {
+                buildJSONPath(scope, jsonPath, false);
+                registerBinding(state, jsonPath.replace('@', absPath), 'state-if', node);
+            } else {
+                registerStateForeachBinding(state, jsonPath, 'state-if', node, scopeRootElement)
+            }
         }
         if (node.hasAttribute('state-if-not')) {
             const jsonPath = node.getAttribute('state-if-not');
-            buildJSONPath(scope, jsonPath, false);
-            registerBinding(state, jsonPath.replace('@', absPath), 'state-if-not', node, jsonPath, scope);
+            if (!isStateForeachItemScope) {
+                buildJSONPath(scope, jsonPath, false);
+                registerBinding(state, jsonPath.replace('@', absPath), 'state-if-not', node);
+            } else {
+                registerStateForeachBinding(state, jsonPath, 'state-if-not', node, scopeRootElement)
+            }
         }
         if (node.hasAttribute('state-content')) {
             const jsonPath = node.getAttribute('state-content');
-            buildJSONPath(scope, jsonPath, node.textContent ?? '');
-            registerBinding(state, jsonPath.replace('@', absPath), 'state-content', node, jsonPath, scope);
+            if (!isStateForeachItemScope) {
+                buildJSONPath(scope, jsonPath, node.textContent ?? '');
+                registerBinding(state, jsonPath.replace('@', absPath), 'state-content', node);
+            } else {
+                registerStateForeachBinding(state, jsonPath, 'state-content', node, scopeRootElement)
+            }
         }
         Array.from(node.attributes).filter(attr => attr.name.startsWith('state-attr-')).forEach(attr => {
             const jsonPath = attr.value;
-            buildJSONPath(scope, jsonPath, node.getAttribute(attr.name.replace('state-attr-', '')) ?? '');
-            registerBinding(state, jsonPath.replace('@', absPath), attr.name, node, jsonPath, scope);
+            if (!isStateForeachItemScope) {
+                buildJSONPath(scope, jsonPath, node.getAttribute(attr.name.replace('state-attr-', '')) ?? '');
+                registerBinding(state, jsonPath.replace('@', absPath), attr.name, node);
+            } else {
+                registerStateForeachBinding(state, jsonPath, attr.name, node, scopeRootElement)
+            }
         });
         if (node.hasAttribute('state-listen')) {
             const jsonPath = node.getAttribute('state-listen');
             if (!node.hasAttribute("id")) {
-                node.setAttribute("id", `state-auto-id-${++(idSequence.next)}`)
+                node.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`)
             }
-            buildJSONPath(scope, jsonPath, node.getAttribute("id"));
-            registerBinding(state, jsonPath.replace('@', absPath), 'state-listen', node, jsonPath, scope);
+            if (!isStateForeachItemScope) {
+                buildJSONPath(scope, jsonPath, node.getAttribute("id"));
+                registerBinding(state, jsonPath.replace('@', absPath), 'state-listen', node);
+            } else {
+                registerStateForeachBinding(state, jsonPath, 'state-listen', node, scopeRootElement)
+            }
         }
         return result;
     }
