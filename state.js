@@ -118,7 +118,7 @@
             const jsonPath = node.getAttribute('state-scope');
             let isStateForeachItemScope = node.parentElement?.tagName === 'TEMPLATE'
                 && node.parentElement?.hasAttribute('state-placeholder')
-                && node.parentElement.hasAttribute('state-foreach');
+                && node.parentElement?.hasAttribute('state-foreach');
             result = { 
                 scope: isStateForeachItemScope ? {} : buildJSONPath(scope, jsonPath, {}),
                 scopeRootElement: node,
