@@ -151,6 +151,15 @@
         }
     }
 
+    function bindToOpenAttr(element, absPath, state) {
+        if (element.tagName === 'DETAILS') {
+            element.addEventListener('toggle', (event) => {
+                setJSONPath(state._current, absPath, event.target.open);
+                state.update();
+            });
+        }
+    }
+
     function visitAndBuild(visitContext, state) {
         const node = visitContext.element;
         let scope = visitContext.scope;
@@ -234,6 +243,9 @@
             if (attrName === 'value') {
                 bindToValueAttr(node, jsonPath.replace('@', absPath), state);
             }
+            if (attrName === 'open') {
+                bindToOpenAttr(node, jsonPath.replace('@', absPath), state);
+            }
         });
         if (node.hasAttribute('state-listen')) {
             const jsonPath = node.getAttribute('state-listen');
@@ -264,6 +276,11 @@
                 element.value = stateValue;
                 if (stateForeachItemRoot) {
                     bindToValueAttr(element, absPath, state);
+                }
+            } else if (attrName === 'open') {
+                element.open = !!stateValue;
+                if (stateForeachItemRoot) {
+                    bindToOpenAttr(element, absPath, state);
                 }
             } else {
                 element.setAttribute(stateType.replace('state-attr-', ''), stateValue);
