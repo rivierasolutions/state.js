@@ -1,5 +1,4 @@
-
-(function polyfillState() {
+(function polyfill() {
 
     function buildJSONPath(root, path, leaf) {
         let split = path.split('.');
