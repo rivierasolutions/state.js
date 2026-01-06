@@ -118,6 +118,39 @@
         itemBindings.get(relPath).set(path, type);
     }
 
+    function bindToValueAttr(element, absPath, state) {
+        if (element.tagName === 'SELECT') {
+            element.addEventListener('change', (event) => {
+                setJSONPath(state._current, absPath, event.target.value);
+                state.update();
+            });
+        }
+        else if (element.getAttribute('contenteditable') === 'true') {
+            element.addEventListener('input', (event) => {
+                setJSONPath(state._current, absPath, event.target.textContent);
+                state.update();
+            });
+        }
+        else if (element.tagName === 'INPUT' && (element.getAttribute('type') === 'checkbox' || element.getAttribute('type') === 'radio')) {
+            element.addEventListener('change', (event) => {
+                setJSONPath(state._current, absPath, event.target.checked);
+                state.update();
+            });
+        }
+        else if (element.tagName === 'INPUT' && element.getAttribute('type') === 'file') {
+            element.addEventListener('change', (event) => {
+                setJSONPath(state._current, absPath, event.target.files);
+                state.update();
+            });
+        }
+        else if ((element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' )) {
+            element.addEventListener('input', (event) => {
+                setJSONPath(state._current, absPath, event.target.value);
+                state.update();
+            });
+        }
+    }
+
     function visitAndBuild(visitContext, state) {
         const node = visitContext.element;
         let scope = visitContext.scope;
@@ -198,11 +231,8 @@
             } else {
                 registerStateForeachBinding(state, jsonPath, attr.name, node, scopeRootElement)
             }
-            if (attrName === 'value' && node.tagName === 'INPUT') {
-                node.addEventListener('input', (event) => {
-                    setJSONPath(state._current, jsonPath.replace('@', absPath), event.target.value);
-                    state.update();
-                });
+            if (attrName === 'value') {
+                bindToValueAttr(node, jsonPath.replace('@', absPath), state);
             }
         });
         if (node.hasAttribute('state-listen')) {
@@ -230,13 +260,10 @@
         }
         else if (stateType.startsWith('state-attr-')) {
             const attrName = stateType.replace('state-attr-', '');
-            if (attrName === 'value' && element.tagName === 'INPUT') {
+            if (attrName === 'value') {
                 element.value = stateValue;
                 if (stateForeachItemRoot) {
-                    element.addEventListener('input', (event) => {
-                        setJSONPath(state._current, absPath, event.target.value);
-                        state.update();
-                    });
+                    bindToValueAttr(element, absPath, state);
                 }
             } else {
                 element.setAttribute(stateType.replace('state-attr-', ''), stateValue);
