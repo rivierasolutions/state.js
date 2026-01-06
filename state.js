@@ -343,50 +343,51 @@
         }
     }
     
-    function load() {
-        document.state._current = {};
-        document.state._idSequence = { next: 0 };
-        document.state._bindings = new Map();
-        document.state._stateForeachItemBindings = new Map();
-        domVisitor(document.documentElement, document.state._current, (ctx) => visitAndBuild(ctx,document.state));
+    function load(rootElement) {
 
-        document.state.apply();
+        rootElement.state = {
+            current: function() {
+                return this._current;
+            },
+            update: function(newState) {
 
-        document.dispatchEvent(new CustomEvent(`StateLoaded`, { bubbles: true, composed: true }));
+                if (newState && newState instanceof Object) {
+                    const toMerge = [ { src: this._current, dst: newState } ];
+                    while (toMerge.length) {
+                        const pair = toMerge.pop();
+                        Object.keys(pair.dst).forEach(p => {
+                            if (pair.dst[p] instanceof Object && pair.src.hasOwnProperty(p)) {
+                                toMerge.push({ src: pair.src[p], dst: pair.dst[p] });
+                            }
+                        });
+                        Object.assign(pair.src, pair.dst);
+                    }
+                }
+
+                this.apply();
+
+                rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
+            },
+            apply: function() {
+                Array.from(this._bindings.keys()).forEach(absPath => {
+                    const elementMap = this._bindings.get(absPath);
+                    Array.from(elementMap.keys()).forEach(element => {
+                        applyState(this, elementMap, absPath, element);
+                    });
+                });
+            }
+        };
+
+        rootElement.state._current = {};
+        rootElement.state._idSequence = { next: 0 };
+        rootElement.state._bindings = new Map();
+        rootElement.state._stateForeachItemBindings = new Map();
+        domVisitor(rootElement, rootElement.state._current, (ctx) => visitAndBuild(ctx,rootElement.state));
+
+        rootElement.state.apply();
+
+        rootElement.dispatchEvent(new CustomEvent(`StateLoaded`, { bubbles: true, composed: true }));
     }
 
-    document.state = {
-        current: function() {
-            return document.state._current;
-        },
-        update: function(newState) {
-
-            if (newState && newState instanceof Object) {
-                const toMerge = [ { src: this._current, dst: newState } ];
-                while (toMerge.length) {
-                    const pair = toMerge.pop();
-                    Object.keys(pair.dst).forEach(p => {
-                        if (pair.dst[p] instanceof Object && pair.src.hasOwnProperty(p)) {
-                            toMerge.push({ src: pair.src[p], dst: pair.dst[p] });
-                        }
-                    });
-                    Object.assign(pair.src, pair.dst);
-                }
-            }
-
-            this.apply();
-
-            document.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
-        },
-        apply: function() {
-            Array.from(this._bindings.keys()).forEach(absPath => {
-                const elementMap = this._bindings.get(absPath);
-                Array.from(elementMap.keys()).forEach(element => {
-                    applyState(this, elementMap, absPath, element);
-                });
-            });
-        }
-    };
-
-    document.addEventListener('DOMContentLoaded', () => load());
+    document.addEventListener('DOMContentLoaded', () => load(document));
 })();
