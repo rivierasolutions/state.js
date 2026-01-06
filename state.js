@@ -206,25 +206,18 @@
         return result;
     }
 
-    function elementOrPath(elementOrPath, listItem) {
-        return Array.isArray(elementOrPath) ? elementOrPath.reduce((el,child) => el.children[child], listItem) : elementOrPath;
-    }
-
     function applyState(elementMap, element, stateType, absPath, rootScope, templateRegistry, listItem = null) {
-        if (stateType === 'state-content') {
-            const stateContent = getJSONPath(rootScope, absPath);
-            element = elementOrPath(element, listItem);
-            element.textContent = stateContent;
+        const stateValue = getJSONPath(rootScope, absPath);
+        element = Array.isArray(element) ? element.reduce((el,child) => el.children[child], listItem) : element;
+
+        if (stateType === 'state-content') {    
+            element.textContent = stateValue;
         }
         else if (stateType.startsWith('state-attr-')) {
-            const stateAttr = getJSONPath(rootScope, absPath);
-            element = elementOrPath(element, listItem);
-            element.setAttribute(stateType.replace('state-attr-', ''), stateAttr);
+            element.setAttribute(stateType.replace('state-attr-', ''), stateValue);
         }
         else if (stateType === 'state-if') {
-            const stateIf = getJSONPath(rootScope, absPath);
-            element = elementOrPath(element, listItem);
-            if (!stateIf && !element.hasAttribute('state-placeholder')) {
+            if (!stateValue && !element.hasAttribute('state-placeholder')) {
 
                 const placeholder = document.createElement('template');
                 placeholder.setAttribute('state-if', element.getAttribute('state-if'));
@@ -235,7 +228,7 @@
                 elementMap.delete(element);
                 elementMap.set(placeholder, 'state-if');
 
-            } else if (stateIf && element.tagName === 'TEMPLATE' && element.hasAttribute('state-placeholder')) {
+            } else if (stateValue && element.tagName === 'TEMPLATE' && element.hasAttribute('state-placeholder')) {
 
                 const content = element.firstElementChild;
                 element.replaceWith(content);
@@ -244,9 +237,7 @@
             }
         }
         else if (stateType === 'state-if-not') {
-            const stateIf = getJSONPath(rootScope, absPath);
-            element = elementOrPath(element, listItem);
-            if (stateIf && !element.hasAttribute('state-placeholder')) {
+            if (stateValue && !element.hasAttribute('state-placeholder')) {
 
                 const placeholder = document.createElement('template');
                 placeholder.setAttribute('state-if-not', element.getAttribute('state-if-not'));
@@ -257,7 +248,7 @@
                 elementMap.delete(element);
                 elementMap.set(placeholder, 'state-if-not');
 
-            } else if (!stateIf && element.tagName === 'TEMPLATE' && element.hasAttribute('state-placeholder')) {
+            } else if (!stateValue && element.tagName === 'TEMPLATE' && element.hasAttribute('state-placeholder')) {
 
                 const content = element.firstElementChild;
                 element.replaceWith(content);
@@ -266,18 +257,14 @@
             }
         }
         else if (stateType === 'state-foreach') {
-            element = elementOrPath(element, listItem);
-            const jsonPath = element.getAttribute('state-foreach');
-            const stateForeach = getJSONPath(rootScope, absPath);
             const stateTemplate = templateRegistry.get(element.getAttribute("id"));
-
             element.parentNode.querySelectorAll(`[state-foreach-id="${element.getAttribute("id")}"]`).forEach(el => el.remove());
-            if (stateForeach) {
-                (Array.isArray(stateForeach) ? stateForeach : [ stateForeach ]).map((item, index) => {
+            if (stateValue) {
+                (Array.isArray(stateValue) ? stateValue : [ stateValue ]).map((item, index) => {
                     item.$index = index;
                     const domItem = element.firstElementChild.cloneNode(true);
                     domItem.setAttribute("state-foreach-id", element.getAttribute("id"));
-                    domItem.setAttribute('state-scope', `${jsonPath}[${index}]`);
+                    domItem.setAttribute('state-scope', `${element.getAttribute('state-foreach')}[${index}]`);
 
                     Array.from(stateTemplate.keys()).forEach(itemPath => {
                         const itemAbsPath = itemPath.replace('@', `${absPath}[${index}]`);
