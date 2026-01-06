@@ -1,4 +1,4 @@
-<html lang="en">
+<html lang="en" state-ignore>
     <head>
         <style>.red { color: red; }</style>
     </head>
@@ -27,22 +27,23 @@
     <script lang="javascript" src="state.js"></script>
     <script lang="javascript">
         document.addEventListener('StateLoaded', () => {
+
             let number = 0;
             let array = [ { text: 'aaa', numberArray: [{ number: 111 }] }, { text: 'bbb', numberArray: [{ number: 222, numberClass: 'red' }] } ];
 
-            document.state.update({ stateArray: array });
+            let subState = document.state.subState(document.body, { stateArray: array });
 
-            document.getElementById(document.state.current().onButtonClick).addEventListener('click', () => {
+            document.getElementById(subState.current().onButtonClick).addEventListener('click', () => {
                 array.push({ text: 'added', numberArray: [{ number: 303, numberClass: 'red' }, { number: 404 }] });
-                document.state.update({
+                subState.update({
                     someText: `Lorem ipsum dolor sit amet ${++number}`,
                     stateArray: array
                 });
             });
 
-            setInterval(() => document.state.update({ 
-                showMVC2: !document.state.current().showMVC2,
-                buttonClass: document.state.current().showMVC2 ? 'red' : null
+            setInterval(() => subState.update({ 
+                showMVC2: !subState.current().showMVC2,
+                buttonClass: subState.current().showMVC2 ? 'red' : null
             }), 2000);
         });
     </script>

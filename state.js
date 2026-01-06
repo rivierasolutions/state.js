@@ -189,13 +189,16 @@
             if (!isStateForeachItemScope) {
                 buildJSONPath(scope, jsonPath, []);
             }
-            
-            const placeholder = placeholderFactory({ 'state-foreach': jsonPath, 'id': `state-auto-id-${++(state._idSequence.next)}` });
-            node.removeAttribute('state-foreach');
-            node.setAttribute('state-scope', jsonPath);
-            node.replaceWith(placeholder);
-            placeholder.appendChild(node);
-            visitContext.walker.currentNode = placeholder;
+
+            let placeholder = node;
+            if (!node.hasAttribute('state-placeholder')) {
+                placeholder = placeholderFactory({ 'state-foreach': jsonPath, 'id': `state-auto-id-${++(state._idSequence.next)}` });
+                node.removeAttribute('state-foreach');
+                node.setAttribute('state-scope', jsonPath);
+                node.replaceWith(placeholder);
+                placeholder.appendChild(node);
+                visitContext.walker.currentNode = placeholder;
+            }
 
             if (isStateForeachItemScope) {
                 registerStateForeachBinding(state, jsonPath, 'state-foreach', placeholder, scopeRootElement)
@@ -343,8 +346,7 @@
         }
     }
     
-    function load(rootElement) {
-
+    function load(rootElement, initialState) {
         rootElement.state = {
             current: function() {
                 return this._current;
@@ -375,6 +377,9 @@
                         applyState(this, elementMap, absPath, element);
                     });
                 });
+            },
+            subState(element, initialSubState) {
+                return load(element, initialSubState);
             }
         };
 
@@ -382,11 +387,13 @@
         rootElement.state._idSequence = { next: 0 };
         rootElement.state._bindings = new Map();
         rootElement.state._stateForeachItemBindings = new Map();
-        domVisitor(rootElement, rootElement.state._current, (ctx) => visitAndBuild(ctx,rootElement.state));
 
-        rootElement.state.apply();
-
-        rootElement.dispatchEvent(new CustomEvent(`StateLoaded`, { bubbles: true, composed: true }));
+        if (!((rootElement == document ? rootElement.documentElement : rootElement).hasAttribute('state-ignore'))) {
+            domVisitor(rootElement, rootElement.state._current, (ctx) => visitAndBuild(ctx,rootElement.state));
+            rootElement.state.update(initialState);
+        }
+        rootElement.dispatchEvent(new CustomEvent(`StateLoaded`));
+        return rootElement.state;
     }
 
     document.addEventListener('DOMContentLoaded', () => load(document));
