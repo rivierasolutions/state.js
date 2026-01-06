@@ -28,10 +28,6 @@ function getJSONPath(root, path) {
     return res;
 }
 
-function isAbsoluteJSONPath(path) {
-    return path.split('.')[0] === '$';
-}
-
 function domVisitor(rootElement, rootScope, visit) {
 
     const walker = document.createTreeWalker(
@@ -53,16 +49,16 @@ function domVisitor(rootElement, rootScope, visit) {
     }
   );
 
-  const stack = [ { scope: rootScope, element: rootElement, absPath: '$' } ];
+  const stack = [ { scope: rootScope, scopeRootElement: rootElement, absJsonPath: '$' } ];
 
   while (walker.nextNode()) {
-    const currentNode = walker.currentNode;
+    const element = walker.currentNode;
     while (true) {
         const scopeTuple = stack[stack.length-1];
         
-        if (scopeTuple.element !== currentNode && scopeTuple.element.contains(currentNode)) {
-            const newScopeAndElem = visit(currentNode, scopeTuple.scope, scopeTuple.absPath, walker);
-            if (newScopeAndElem && newScopeAndElem.scope && newScopeAndElem.element && newScopeAndElem.absPath) {
+        if (scopeTuple.scopeRootElement !== element && scopeTuple.scopeRootElement.contains(element)) {
+            const newScopeAndElem = visit({ ...scopeTuple, walker, element });
+            if (newScopeAndElem && newScopeAndElem.scope && newScopeAndElem.scopeRootElement && newScopeAndElem.absJsonPath) {
                 stack.push(newScopeAndElem);
             }
             break;
@@ -110,12 +106,19 @@ function registerTemplate(registry, relPath, type, element, listScopeRoot) {
     registry.get(relPath).set(path, type);
 }
 
-function visitAndBuild(node, scope, absPath, walker, idSequence, registry, templateRegistry) {
+function visitAndBuild(visitContext, state) {
+    const node = visitContext.element;
+    const walker = visitContext.walker;
+    const idSequence = state._idSequence;
+    const registry = state._bindings;
+    const templateRegistry = state._stateForeachItemBindings;
+    let scope = visitContext.scope;
+    let absPath = visitContext.absJsonPath;
     let result = undefined;
     if (node.hasAttribute('state-scope')) {
         const jsonPath = node.getAttribute('state-scope');
         const isArrayScope = /.*\[\]$/g.test(jsonPath);
-        result = { scope: isArrayScope ? { $stateForeachScopeRoot: node } : buildJSONPath(scope, jsonPath, {}), element: node, absPath: jsonPath.replace('@', absPath) };
+        result = { scope: isArrayScope ? { $stateForeachScopeRoot: node } : buildJSONPath(scope, jsonPath, {}), scopeRootElement: node, absJsonPath: jsonPath.replace('@', absPath) };
         scope = result.scope;
         absPath = result.absPath;
     }
@@ -252,11 +255,9 @@ document.state = {
 
         this._current = {};
         this._idSequence = { next: 0 };
-        this._registry = new Map();
-        this._templateRegistry = new Map();
-        domVisitor(document.documentElement, this._current, (n,s,p,w) => visitAndBuild(n,s,p,w,this._idSequence,this._registry,this._templateRegistry));
-
-        this._referenceState = structuredClone(this._current);
+        this._bindings = new Map();
+        this._stateForeachItemBindings = new Map();
+        domVisitor(document.documentElement, this._current, (ctx) => visitAndBuild(ctx,this));
 
         this.update(initialState);
     },
@@ -264,17 +265,17 @@ document.state = {
         return document.state._current;
     },
     apply: function() {
-        Array.from(this._registry.keys()).forEach(absPath => {
-            const elementMap = this._registry.get(absPath);
+        Array.from(this._bindings.keys()).forEach(absPath => {
+            const elementMap = this._bindings.get(absPath);
             Array.from(elementMap.keys()).forEach(element => {
-                applyState(elementMap, element, elementMap.get(element), absPath, this._current, this._templateRegistry);
+                applyState(elementMap, element, elementMap.get(element), absPath, this._current, this._stateForeachItemBindings);
             });
         });
     },
     update: function(newState) {
 
         if (newState && newState instanceof Object) {
-            const toMerge = [ { src: document.state._current, dst: newState } ];
+            const toMerge = [ { src: this._current, dst: newState } ];
             while (toMerge.length) {
                 const pair = toMerge.pop();
                 Object.keys(pair.dst).forEach(p => {
