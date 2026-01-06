@@ -30,6 +30,18 @@
         return res;
     }
 
+    function setJSONPath(root, path, value) {
+        let split = path.split('.');
+        if (split[0] === '$' || split[0] === '@') {
+            split = split.slice(1);
+        }
+        const parent = split.slice(0, split.length-1).reduce((obj, p) => {
+            const match = /^(.*)\[([0-9]+)\]$/.exec(p);
+            return match ? obj[match[1]][parseInt(match[2])] : obj[p];
+        }, root);
+        parent[split[split.length-1]] = value;
+    }
+
     function placeholderFactory(attrs) {
         const placeholder = document.createElement('template');
         placeholder.setAttribute('state-placeholder', '');
@@ -179,11 +191,18 @@
         }
         Array.from(node.attributes).filter(attr => attr.name.startsWith('state-attr-')).forEach(attr => {
             const jsonPath = attr.value;
+            const attrName = attr.name.replace('state-attr-', '');
             if (!isStateForeachItemScope) {
-                buildJSONPath(scope, jsonPath, node.getAttribute(attr.name.replace('state-attr-', '')) ?? '');
+                buildJSONPath(scope, jsonPath, node.getAttribute(attrName) ?? '');
                 registerBinding(state, jsonPath.replace('@', absPath), attr.name, node);
             } else {
                 registerStateForeachBinding(state, jsonPath, attr.name, node, scopeRootElement)
+            }
+            if (attrName === 'value' && node.tagName === 'INPUT') {
+                node.addEventListener('input', (event) => {
+                    setJSONPath(state._current, absPath, event.target.value);
+                    state.update();
+                });
             }
         });
         if (node.hasAttribute('state-listen')) {
@@ -210,7 +229,18 @@
             element.textContent = stateValue;
         }
         else if (stateType.startsWith('state-attr-')) {
-            element.setAttribute(stateType.replace('state-attr-', ''), stateValue);
+            const attrName = stateType.replace('state-attr-', '');
+            if (attrName === 'value' && element.tagName === 'INPUT') {
+                element.value = stateValue;
+                if (stateForeachItemRoot) {
+                    element.addEventListener('input', (event) => {
+                        setJSONPath(state._current, absPath, event.target.value);
+                        state.update();
+                    });
+                }
+            } else {
+                element.setAttribute(stateType.replace('state-attr-', ''), stateValue);
+            }
         }
         else if (stateType === 'state-if') {
             if (!stateValue && !element.hasAttribute('state-placeholder')) {
