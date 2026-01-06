@@ -201,9 +201,10 @@
         return result;
     }
 
-    function applyState(elementMap, elementOrPath, stateType, absPath, rootScope, templateRegistry, listItem = null) {
-        const stateValue = getJSONPath(rootScope, absPath);
-        const element = (listItem && Array.isArray(elementOrPath)) ? elementOrPath.reduce((el,child) => el.children[child], listItem) : elementOrPath;
+    function applyState(state, elementMap, absPath, elementOrPath, stateForeachItemRoot = null) {
+        const stateType = elementMap.get(elementOrPath);
+        const stateValue = getJSONPath(state._current, absPath);
+        const element = (stateForeachItemRoot && Array.isArray(elementOrPath)) ? elementOrPath.reduce((el,child) => el.children[child], stateForeachItemRoot) : elementOrPath;
 
         if (stateType === 'state-content') {    
             element.textContent = stateValue;
@@ -246,7 +247,7 @@
             }
         }
         else if (stateType === 'state-foreach') {
-            const stateTemplate = templateRegistry.get(element.getAttribute("id"));
+            const stateTemplate = state._stateForeachItemBindings.get(element.getAttribute("id"));
             element.parentNode.querySelectorAll(`[state-foreach-id="${element.getAttribute("id")}"]`).forEach(el => el.remove());
             if (stateValue) {
                 (Array.isArray(stateValue) ? stateValue : [ stateValue ]).map((item, index) => {
@@ -256,10 +257,9 @@
                     domItem.setAttribute('state-scope', `${element.getAttribute('state-foreach')}[${index}]`);
 
                     Array.from(stateTemplate.keys()).forEach(itemPath => {
-                        const itemAbsPath = itemPath.replace('@', `${absPath}[${index}]`);
                         const tempaltePathMap = stateTemplate.get(itemPath);
                         Array.from(tempaltePathMap.keys()).forEach(templatePath => {
-                            applyState(tempaltePathMap, templatePath, tempaltePathMap.get(templatePath), itemAbsPath, rootScope, templateRegistry, domItem);
+                            applyState(state, tempaltePathMap, itemPath.replace('@', `${absPath}[${index}]`), templatePath, domItem);
                         });
                     });
 
@@ -308,7 +308,7 @@
             Array.from(this._bindings.keys()).forEach(absPath => {
                 const elementMap = this._bindings.get(absPath);
                 Array.from(elementMap.keys()).forEach(element => {
-                    applyState(elementMap, element, elementMap.get(element), absPath, this._current, this._stateForeachItemBindings);
+                    applyState(this, elementMap, absPath, element);
                 });
             });
         }
