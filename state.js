@@ -201,9 +201,9 @@
         return result;
     }
 
-    function applyState(elementMap, element, stateType, absPath, rootScope, templateRegistry, listItem = null) {
+    function applyState(elementMap, elementOrPath, stateType, absPath, rootScope, templateRegistry, listItem = null) {
         const stateValue = getJSONPath(rootScope, absPath);
-        element = Array.isArray(element) ? element.reduce((el,child) => el.children[child], listItem) : element;
+        const element = (listItem && Array.isArray(elementOrPath)) ? elementOrPath.reduce((el,child) => el.children[child], listItem) : elementOrPath;
 
         if (stateType === 'state-content') {    
             element.textContent = stateValue;
@@ -268,28 +268,22 @@
             }
         }
     }
+    
+    function build() {
+        document.state._current = {};
+        document.state._idSequence = { next: 0 };
+        document.state._bindings = new Map();
+        document.state._stateForeachItemBindings = new Map();
+        domVisitor(document.documentElement, document.state._current, (ctx) => visitAndBuild(ctx,document.state));
+
+        document.state.apply();
+
+        document.dispatchEvent(new CustomEvent(`StateBuilt`, { bubbles: true, composed: true }));
+    }
 
     document.state = {
-        build: function(initialState) {
-
-            this._current = {};
-            this._idSequence = { next: 0 };
-            this._bindings = new Map();
-            this._stateForeachItemBindings = new Map();
-            domVisitor(document.documentElement, this._current, (ctx) => visitAndBuild(ctx,this));
-
-            this.update(initialState);
-        },
         current: function() {
             return document.state._current;
-        },
-        apply: function() {
-            Array.from(this._bindings.keys()).forEach(absPath => {
-                const elementMap = this._bindings.get(absPath);
-                Array.from(elementMap.keys()).forEach(element => {
-                    applyState(elementMap, element, elementMap.get(element), absPath, this._current, this._stateForeachItemBindings);
-                });
-            });
         },
         update: function(newState) {
 
@@ -306,7 +300,19 @@
                 }
             }
 
-            document.state.apply();
+            this.apply();
+
+            document.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
+        },
+        apply: function() {
+            Array.from(this._bindings.keys()).forEach(absPath => {
+                const elementMap = this._bindings.get(absPath);
+                Array.from(elementMap.keys()).forEach(element => {
+                    applyState(elementMap, element, elementMap.get(element), absPath, this._current, this._stateForeachItemBindings);
+                });
+            });
         }
     };
+
+    document.addEventListener('DOMContentLoaded', () => build());
 })();

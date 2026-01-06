@@ -23,11 +23,11 @@
     </body>
     <script lang="javascript" src="file://wsl.localhost/Ubuntu-24.04/home/piotrek/MVC2sandbox/state.js"></script>
     <script lang="javascript">
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('StateBuilt', () => {
             let number = 0;
             let array = [ { text: 'aaa', numberArray: [{ number: 111 }] }, { text: 'bbb', numberArray: [{ number: 222, numberClass: 'red' }] } ];
 
-            document.state.build({ stateArray: array });
+            document.state.update({ stateArray: array });
 
             document.getElementById(document.state.current().onButtonClick).addEventListener('click', () => {
                 array.push({ text: 'added', numberArray: [{ number: 303, numberClass: 'red' }, { number: 404 }] });
