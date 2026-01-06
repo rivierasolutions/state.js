@@ -116,12 +116,14 @@
 
         if (node.hasAttribute('state-scope')) {
             const jsonPath = node.getAttribute('state-scope');
-            const isArrayScope = jsonPath.endsWith('[]');
+            let isStateForeachItemScope = node.parentElement?.tagName === 'TEMPLATE'
+                && node.parentElement?.hasAttribute('state-placeholder')
+                && node.parentElement.hasAttribute('state-foreach');
             result = { 
-                scope: isArrayScope ? {} : buildJSONPath(scope, jsonPath, {}),
+                scope: isStateForeachItemScope ? {} : buildJSONPath(scope, jsonPath, {}),
                 scopeRootElement: node,
                 absJsonPath: jsonPath.replace('@', absPath),
-                isStateForeachItemScope: isArrayScope
+                isStateForeachItemScope
             };
             scope = result.scope;
             scopeRootElement = result.scopeRootElement;
@@ -136,7 +138,7 @@
             
             const placeholder = placeholderFactory({ 'state-foreach': jsonPath, 'id': `state-auto-id-${++(state._idSequence.next)}` });
             node.removeAttribute('state-foreach');
-            node.setAttribute('state-scope', `${jsonPath}[]`);
+            node.setAttribute('state-scope', jsonPath);
             node.replaceWith(placeholder);
             placeholder.appendChild(node);
             visitContext.walker.currentNode = placeholder;
