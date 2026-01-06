@@ -269,7 +269,7 @@
         }
     }
     
-    function build() {
+    function load() {
         document.state._current = {};
         document.state._idSequence = { next: 0 };
         document.state._bindings = new Map();
@@ -278,7 +278,7 @@
 
         document.state.apply();
 
-        document.dispatchEvent(new CustomEvent(`StateBuilt`, { bubbles: true, composed: true }));
+        document.dispatchEvent(new CustomEvent(`StateLoaded`, { bubbles: true, composed: true }));
     }
 
     document.state = {
@@ -314,5 +314,5 @@
         }
     };
 
-    document.addEventListener('DOMContentLoaded', () => build());
+    document.addEventListener('DOMContentLoaded', () => load());
 })();
