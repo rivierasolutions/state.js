@@ -453,7 +453,7 @@
         rootElement.state._bindings = new Map();
         rootElement.state._stateForeachItemBindings = new Map();
 
-        if (!((rootElement == document ? rootElement.documentElement : rootElement).hasAttribute('state-ignore'))) {
+        if (!(rootElement == document && rootElement.documentElement.hasAttribute('state-ignore'))) {
             domVisitor(rootElement, rootElement.state._current, (ctx) => visitAndBuild(ctx,rootElement.state));
 
             mergeAndBuildChangeIndex(rootElement.state._current, initialState);
