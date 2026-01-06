@@ -89,7 +89,7 @@
     }
 
     function registerStateForeachBinding(state, relPath, type, element, statForeachRootScope) {
-        const id = statForeachRootScope.parentElement.parentElement.getAttribute('id');
+        const id = statForeachRootScope.parentElement.getAttribute('id');
         if (!state._stateForeachItemBindings.has(id)) {
             state._stateForeachItemBindings.set(id, new Map());
         }
@@ -119,7 +119,7 @@
 
         if (node.hasAttribute('state-scope')) {
             const jsonPath = node.getAttribute('state-scope');
-            const isArrayScope = /.*\[\]$/g.test(jsonPath);
+            const isArrayScope = jsonPath.endsWith('[]');
             result = { 
                 scope: isArrayScope ? {} : buildJSONPath(scope, jsonPath, {}),
                 scopeRootElement: node,
@@ -137,11 +137,15 @@
                 buildJSONPath(scope, jsonPath, []);
             }
             
-            const placeholder = placeholderFactory('state-foreach-placeholder', { "state-foreach": jsonPath, id: `state-auto-id-${++(state._idSequence.next)}` });
+            const placeholder = document.createElement('template');
+            placeholder.setAttribute('state-foreach', jsonPath);
+            placeholder.setAttribute('state-placeholder', '');
+            placeholder.setAttribute('id', `state-auto-id-${++(state._idSequence.next)}`);
+
             node.removeAttribute('state-foreach');
             node.setAttribute('state-scope', `${jsonPath}[]`);
             node.replaceWith(placeholder);
-            placeholder.querySelector('template').appendChild(node);
+            placeholder.appendChild(node);
             visitContext.walker.currentNode = placeholder;
 
             if (isStateForeachItemScope) {
@@ -220,17 +224,20 @@
         else if (stateType === 'state-if') {
             const stateIf = getJSONPath(rootScope, absPath);
             element = elementOrPath(element, listItem);
-            if (!stateIf && element.tagName !== 'STATE-IF-PLACEHOLDER') {
+            if (!stateIf && !element.hasAttribute('state-placeholder')) {
 
-                const placeholder = placeholderFactory('state-if-placeholder', { "state-if": element.getAttribute('state-if') });
+                const placeholder = document.createElement('template');
+                placeholder.setAttribute('state-if', element.getAttribute('state-if'));
+                placeholder.setAttribute('state-placeholder', '');
+
                 element.replaceWith(placeholder);
-                placeholder.querySelector('template').appendChild(element);
+                placeholder.appendChild(element);
                 elementMap.delete(element);
                 elementMap.set(placeholder, 'state-if');
 
-            } else if (stateIf && element.tagName === 'STATE-IF-PLACEHOLDER') {
+            } else if (stateIf && element.tagName === 'TEMPLATE' && element.hasAttribute('state-placeholder')) {
 
-                const content = element.querySelector('template').firstElementChild;
+                const content = element.firstElementChild;
                 element.replaceWith(content);
                 elementMap.delete(element);
                 elementMap.set(content, 'state-if');
@@ -239,17 +246,20 @@
         else if (stateType === 'state-if-not') {
             const stateIf = getJSONPath(rootScope, absPath);
             element = elementOrPath(element, listItem);
-            if (stateIf && element.tagName !== 'STATE-IF-PLACEHOLDER') {
+            if (stateIf && !element.hasAttribute('state-placeholder')) {
 
-                const placeholder = placeholderFactory('state-if-placeholder', { "state-if-not": element.getAttribute('state-if') });
+                const placeholder = document.createElement('template');
+                placeholder.setAttribute('state-if-not', element.getAttribute('state-if-not'));
+                placeholder.setAttribute('state-placeholder', '');
+
                 element.replaceWith(placeholder);
-                placeholder.querySelector('template').appendChild(element);
+                placeholder.appendChild(element);
                 elementMap.delete(element);
                 elementMap.set(placeholder, 'state-if-not');
 
-            } else if (!stateIf && element.tagName === 'STATE-IF-PLACEHOLDER') {
+            } else if (!stateIf && element.tagName === 'TEMPLATE' && element.hasAttribute('state-placeholder')) {
 
-                const content = element.querySelector('template').firstElementChild;
+                const content = element.firstElementChild;
                 element.replaceWith(content);
                 elementMap.delete(element);
                 elementMap.set(content, 'state-if-not');
@@ -265,7 +275,7 @@
             if (stateForeach) {
                 (Array.isArray(stateForeach) ? stateForeach : [ stateForeach ]).map((item, index) => {
                     item.$index = index;
-                    const domItem = element.querySelector("template").firstElementChild.cloneNode(true);
+                    const domItem = element.firstElementChild.cloneNode(true);
                     domItem.setAttribute("state-foreach-id", element.getAttribute("id"));
                     domItem.setAttribute('state-scope', `${jsonPath}[${index}]`);
 
