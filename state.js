@@ -73,12 +73,9 @@ function domVisitor(rootElement, rootScope, visit) {
   }
 }
 
-function placeholderFactory(tag, attrs, ignore = true) {
+function placeholderFactory(tag, attrs) {
     const placeholder = document.createElement(tag);
     const template = document.createElement('template');
-    if (ignore) {
-        template.setAttribute("state-ignore", "state-ignore");
-    }
     placeholder.appendChild(template);
     Object.keys(attrs).forEach(k => {
         placeholder.setAttribute(k, attrs[k]);
@@ -86,18 +83,39 @@ function placeholderFactory(tag, attrs, ignore = true) {
     return placeholder;
 }
 
-function register(registry, absPath, type, element) {
-    if (!registry.has(absPath)) {
-        registry.set(absPath, []);
+function register(templateRegistry, registry, absPath, type, element, relPath, scope) {
+    if (scope.$stateForeachScopeRoot) {
+        registerTemplate(templateRegistry.get(scope.$stateForeachScopeRoot.parentElement.parentElement.getAttribute('id')), relPath, type, element, scope.$stateForeachScopeRoot);
+        return;
     }
-    registry.get(absPath).push({ stateType: type, element });
+    if (!registry.has(absPath)) {
+        registry.set(absPath, new Map());
+    }
+    registry.get(absPath).set(element, type);
 }
 
-function visitAndBuild(node, scope, absPath, walker, idSequence, registry, foreachItemTemplates) {
+function registerTemplate(registry, relPath, type, element, listScopeRoot) {
+    if (!registry.has(relPath)) {
+        registry.set(relPath, new Map());
+    }
+    const path = [];
+    while (element && element !== listScopeRoot) {
+        if (!element.parentElement) {
+            break;
+        }
+        const index = ((el) => { let index=0; while((el = el.previousElementSibling)) { ++index; } return index; })(element);
+        path.unshift(index);
+        element = element.parentElement;
+    }
+    registry.get(relPath).set(path, type);
+}
+
+function visitAndBuild(node, scope, absPath, walker, idSequence, registry, templateRegistry) {
     let result = undefined;
     if (node.hasAttribute('state-scope')) {
         const jsonPath = node.getAttribute('state-scope');
-        result = { scope: /.*\[\]$/g.test(jsonPath) ? {} : buildJSONPath(scope, jsonPath, {}), element: node, absPath: jsonPath.replace('@', absPath) };
+        const isArrayScope = /.*\[\]$/g.test(jsonPath);
+        result = { scope: isArrayScope ? { $stateForeachScopeRoot: node } : buildJSONPath(scope, jsonPath, {}), element: node, absPath: jsonPath.replace('@', absPath) };
         scope = result.scope;
         absPath = result.absPath;
     }
@@ -105,36 +123,37 @@ function visitAndBuild(node, scope, absPath, walker, idSequence, registry, forea
         const jsonPath = node.getAttribute('state-foreach');
         buildJSONPath(scope, jsonPath, []);
         
-        const placeholder = placeholderFactory('state-foreach-placeholder', { "state-foreach": jsonPath, id: `state-auto-id-${++(idSequence.next)}` }, false);
+        const placeholder = placeholderFactory('state-foreach-placeholder', { "state-foreach": jsonPath, id: `state-auto-id-${++(idSequence.next)}` });
         node.removeAttribute('state-foreach');
         node.setAttribute('state-scope', `${jsonPath}[]`);
+        templateRegistry.set(placeholder.getAttribute('id'), new Map());
         node.replaceWith(placeholder);
         placeholder.querySelector('template').appendChild(node);
         walker.currentNode = placeholder;
-        foreachItemTemplates.push(placeholder.querySelector('template'));
 
-        register(registry, jsonPath.replace('@', absPath), 'state-foreach', placeholder);
+        register(templateRegistry, registry, jsonPath.replace('@', absPath), 'state-foreach', placeholder, jsonPath, scope);
         return result;
     }
     if (node.hasAttribute('state-if')) {
         const jsonPath = node.getAttribute('state-if');
         buildJSONPath(scope, jsonPath, false);
-        register(registry, jsonPath.replace('@', absPath), 'state-if', node);
+        
+        register(templateRegistry, registry, jsonPath.replace('@', absPath), 'state-if', node, jsonPath, scope);
     }
     if (node.hasAttribute('state-if-not')) {
         const jsonPath = node.getAttribute('state-if-not');
         buildJSONPath(scope, jsonPath, false);
-        register(registry, jsonPath.replace('@', absPath), 'state-if-not', node);
+        register(templateRegistry, registry, jsonPath.replace('@', absPath), 'state-if-not', node, jsonPath, scope);
     }
     if (node.hasAttribute('state-content')) {
         const jsonPath = node.getAttribute('state-content');
         buildJSONPath(scope, jsonPath, node.textContent ?? '');
-        register(registry, jsonPath.replace('@', absPath), 'state-content', node);
+        register(templateRegistry, registry, jsonPath.replace('@', absPath), 'state-content', node, jsonPath, scope);
     }
     Array.from(node.attributes).filter(attr => attr.name.startsWith('state-attr-')).forEach(attr => {
         const jsonPath = attr.value;
         buildJSONPath(scope, jsonPath, node.getAttribute(attr.name.replace('state-attr-', '')) ?? '');
-        register(registry, jsonPath.replace('@', absPath), attr, node);
+        register(templateRegistry, registry, jsonPath.replace('@', absPath), attr.name, node, jsonPath, scope);
     });
     if (node.hasAttribute('state-listen')) {
         const jsonPath = node.getAttribute('state-listen');
@@ -142,86 +161,90 @@ function visitAndBuild(node, scope, absPath, walker, idSequence, registry, forea
             node.setAttribute("id", `state-auto-id-${++(idSequence.next)}`)
         }
         buildJSONPath(scope, jsonPath, node.getAttribute("id"));
-        register(registry, jsonPath.replace('@', absPath), 'state-listen', node);
+        register(templateRegistry, registry, jsonPath.replace('@', absPath), 'state-listen', node, jsonPath, scope);
     }
     return result;
 }
 
-function visitAndApply(node, scope, absPath, walker, rootScope) {
-    let result = undefined;
-    if (node.hasAttribute('state-scope')) {
-        const jsonPath = node.getAttribute('state-scope');
-        result = { scope: getJSONPath(scope, jsonPath), element: node, absPath: jsonPath.replace('@', absPath) };
-        scope = result.scope;
-        absPath = result.absPath;
+function elementOrPath(elementOrPath, listItem) {
+    return Array.isArray(elementOrPath) ? elementOrPath.reduce((el,child) => el.children[child], listItem) : elementOrPath;
+}
+
+function applyState(elementMap, element, stateType, absPath, rootScope, templateRegistry, listItem = null) {
+    if (stateType === 'state-content') {
+        const stateContent = getJSONPath(rootScope, absPath);
+        element = elementOrPath(element, listItem);
+        element.textContent = stateContent;
     }
-    if (node.hasAttribute('state-if')) {
-        const jsonPath = node.getAttribute('state-if');
-        const stateIf = getJSONPath((isAbsoluteJSONPath(jsonPath) ? rootScope : scope), jsonPath);
+    else if (stateType.startsWith('state-attr-')) {
+        const stateAttr = getJSONPath(rootScope, absPath);
+        element = elementOrPath(element, listItem);
+        element.setAttribute(stateType.replace('state-attr-', ''), stateAttr);
+    }
+    else if (stateType === 'state-if') {
+        const stateIf = getJSONPath(rootScope, absPath);
+        element = elementOrPath(element, listItem);
+        if (!stateIf && element.tagName !== 'STATE-IF-PLACEHOLDER') {
 
-        if (!stateIf && node.tagName !== 'STATE-IF-PLACEHOLDER') {
+            const placeholder = placeholderFactory('state-if-placeholder', { "state-if": element.getAttribute('state-if') });
+            element.replaceWith(placeholder);
+            placeholder.querySelector('template').appendChild(element);
+            elementMap.delete(element);
+            elementMap.set(placeholder, 'state-if');
 
-            const placeholder = placeholderFactory('state-if-placeholder', { "state-if": jsonPath });
-            node.replaceWith(placeholder);
-            placeholder.querySelector('template').appendChild(node);
-            walker.currentNode = placeholder;
-            return result;
+        } else if (stateIf && element.tagName === 'STATE-IF-PLACEHOLDER') {
 
-        } else if (stateIf && node.tagName === 'STATE-IF-PLACEHOLDER') {
-
-            const content = node.querySelector('template').firstElementChild;
-
-            node.replaceWith(content);
-            walker.currentNode = content;
-            node = content;
+            const content = element.querySelector('template').firstElementChild;
+            element.replaceWith(content);
+            elementMap.delete(element);
+            elementMap.set(content, 'state-if');
         }
     }
-    if (node.hasAttribute('state-if-not')) {
-        const jsonPath = node.getAttribute('state-if-not');
-        const stateIf = getJSONPath((isAbsoluteJSONPath(jsonPath) ? rootScope : scope), jsonPath);
+    else if (stateType === 'state-if-not') {
+        const stateIf = getJSONPath(rootScope, absPath);
+        element = elementOrPath(element, listItem);
+        if (stateIf && element.tagName !== 'STATE-IF-PLACEHOLDER') {
 
-        if (stateIf && node.tagName !== 'STATE-IF-PLACEHOLDER') {
+            const placeholder = placeholderFactory('state-if-placeholder', { "state-if-not": element.getAttribute('state-if') });
+            element.replaceWith(placeholder);
+            placeholder.querySelector('template').appendChild(element);
+            elementMap.delete(element);
+            elementMap.set(placeholder, 'state-if-not');
 
-            const placeholder = placeholderFactory('state-if-placeholder', { "state-if-not": jsonPath });
-            node.replaceWith(placeholder);
-            placeholder.querySelector('template').appendChild(node);
-            walker.currentNode = placeholder;
-            return result;
+        } else if (!stateIf && element.tagName === 'STATE-IF-PLACEHOLDER') {
 
-        } else if (!stateIf && node.tagName === 'STATE-IF-PLACEHOLDER') {
-
-            const content = node.querySelector('template').firstElementChild;
-
-            node.replaceWith(content);
-            walker.currentNode = content;
-            node = content;
+            const content = element.querySelector('template').firstElementChild;
+            element.replaceWith(content);
+            elementMap.delete(element);
+            elementMap.set(content, 'state-if-not');
         }
     }
-    if (node.hasAttribute('state-foreach')) {
-        const jsonPath = node.getAttribute('state-foreach');
-        const stateForeach = getJSONPath((isAbsoluteJSONPath(jsonPath) ? rootScope : scope), jsonPath);
-        node.parentNode.querySelectorAll(`[state-foreach-id="${node.getAttribute("id")}"]`).forEach(el => el.remove());
+    else if (stateType === 'state-foreach') {
+        element = elementOrPath(element, listItem);
+        const jsonPath = element.getAttribute('state-foreach');
+        const stateForeach = getJSONPath(rootScope, absPath);
+        const stateTemplate = templateRegistry.get(element.getAttribute("id"));
+
+        element.parentNode.querySelectorAll(`[state-foreach-id="${element.getAttribute("id")}"]`).forEach(el => el.remove());
         if (stateForeach) {
             (Array.isArray(stateForeach) ? stateForeach : [ stateForeach ]).map((item, index) => {
                 item.$index = index;
-                const domItem = node.querySelector("template").firstElementChild.cloneNode(true);
-                domItem.setAttribute("state-foreach-id", node.getAttribute("id"));
+                const domItem = element.querySelector("template").firstElementChild.cloneNode(true);
+                domItem.setAttribute("state-foreach-id", element.getAttribute("id"));
                 domItem.setAttribute('state-scope', `${jsonPath}[${index}]`);
+
+                Array.from(stateTemplate.keys()).forEach(itemPath => {
+                    const itemAbsPath = itemPath.replace('@', `${absPath}[${index}]`);
+                    const tempaltePathMap = stateTemplate.get(itemPath);
+                    Array.from(tempaltePathMap.keys()).forEach(templatePath => {
+                        applyState(tempaltePathMap, templatePath, tempaltePathMap.get(templatePath), itemAbsPath, rootScope, templateRegistry, domItem);
+                    });
+                });
+
                 return domItem;
-            }).reverse().forEach(i => node.after(i));
+            }).reverse().forEach(i => element.after(i));
         }
     }
-    if (node.hasAttribute('state-content')) {
-        const jsonPath = node.getAttribute('state-content');
-        const stateContent = getJSONPath((isAbsoluteJSONPath(jsonPath) ? rootScope : scope), jsonPath);
-        node.textContent = stateContent;
-    }
-    Array.from(node.attributes).filter(attr => attr.name.startsWith('state-attr-')).forEach(attr => {
-        const jsonPath = attr.value;
-        const stateAttr = getJSONPath((isAbsoluteJSONPath(jsonPath) ? rootScope : scope), jsonPath);
-        node.setAttribute(attr.name.replace('state-attr-', ''), stateAttr);
-    });
-    return result;
 }
 
 document.state = {
@@ -229,12 +252,9 @@ document.state = {
 
         this._current = {};
         this._idSequence = { next: 0 };
-        const foreachItemTemplates = [];
         this._registry = new Map();
-        domVisitor(document.documentElement, this._current, (n,s,p,w) => visitAndBuild(n,s,p,w,this._idSequence,this._registry,foreachItemTemplates));
-        foreachItemTemplates.forEach(el => {
-            el.setAttribute('state-ignore', 'state-ignore');
-        });
+        this._templateRegistry = new Map();
+        domVisitor(document.documentElement, this._current, (n,s,p,w) => visitAndBuild(n,s,p,w,this._idSequence,this._registry,this._templateRegistry));
 
         this._referenceState = structuredClone(this._current);
 
@@ -244,7 +264,12 @@ document.state = {
         return document.state._current;
     },
     apply: function() {
-        domVisitor(document.documentElement, document.state._current, (n,s,p,w) => visitAndApply(n,s,p,w,document.state._current));
+        Array.from(this._registry.keys()).forEach(absPath => {
+            const elementMap = this._registry.get(absPath);
+            Array.from(elementMap.keys()).forEach(element => {
+                applyState(elementMap, element, elementMap.get(element), absPath, this._current, this._templateRegistry);
+            });
+        });
     },
     update: function(newState) {
 
