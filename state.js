@@ -30,13 +30,10 @@
         return res;
     }
 
-    function placeholderFactory(tag, attrs) {
-        const placeholder = document.createElement(tag);
-        const template = document.createElement('template');
-        placeholder.appendChild(template);
-        Object.keys(attrs).forEach(k => {
-            placeholder.setAttribute(k, attrs[k]);
-        });
+    function placeholderFactory(attrs) {
+        const placeholder = document.createElement('template');
+        placeholder.setAttribute('state-placeholder', '');
+        Object.keys(attrs).forEach(k => placeholder.setAttribute(k, attrs[k]));
         return placeholder;
     }
 
@@ -137,11 +134,7 @@
                 buildJSONPath(scope, jsonPath, []);
             }
             
-            const placeholder = document.createElement('template');
-            placeholder.setAttribute('state-foreach', jsonPath);
-            placeholder.setAttribute('state-placeholder', '');
-            placeholder.setAttribute('id', `state-auto-id-${++(state._idSequence.next)}`);
-
+            const placeholder = placeholderFactory({ 'state-foreach': jsonPath, 'id': `state-auto-id-${++(state._idSequence.next)}` });
             node.removeAttribute('state-foreach');
             node.setAttribute('state-scope', `${jsonPath}[]`);
             node.replaceWith(placeholder);
@@ -219,10 +212,7 @@
         else if (stateType === 'state-if') {
             if (!stateValue && !element.hasAttribute('state-placeholder')) {
 
-                const placeholder = document.createElement('template');
-                placeholder.setAttribute('state-if', element.getAttribute('state-if'));
-                placeholder.setAttribute('state-placeholder', '');
-
+                const placeholder = placeholderFactory({ 'state-if': element.getAttribute('state-if') });
                 element.replaceWith(placeholder);
                 placeholder.appendChild(element);
                 elementMap.delete(element);
@@ -239,10 +229,7 @@
         else if (stateType === 'state-if-not') {
             if (stateValue && !element.hasAttribute('state-placeholder')) {
 
-                const placeholder = document.createElement('template');
-                placeholder.setAttribute('state-if-not', element.getAttribute('state-if-not'));
-                placeholder.setAttribute('state-placeholder', '');
-
+                const placeholder = placeholderFactory({ 'state-if-not': element.getAttribute('state-if-not') });
                 element.replaceWith(placeholder);
                 placeholder.appendChild(element);
                 elementMap.delete(element);
