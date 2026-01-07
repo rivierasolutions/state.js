@@ -269,7 +269,40 @@
         return result;
     }
 
-    function applyState(state, elementMap, absPath, elementOrPath, stateForeachItemRoot = null) {
+    function removeStateForeachItem(statForeachElement, index) {
+        const query = statForeachElement.parentNode.querySelectorAll(`[state-foreach-id="${statForeachElement.getAttribute("id")}"]`);
+        function remove(el, index) {
+            Array.from(stateTemplate.keys()).map(path => path.replace('@', `${absPath}[${index}]`)).forEach(path => unregisterBinding(state, path, el));
+            el.remove();
+        }
+        if (index === undefined) {
+            query.forEach(remove);
+        } else {
+            let el = query.at(index);
+            if (el) {
+                remove(el, index);
+            }
+        }
+    }
+
+    function foreachStateItemFactory(state, absPath, statForeachElement, item, index) {
+        const stateTemplate = state._stateForeachItemBindings.get(statForeachElement.getAttribute("id"));
+        item.$index = index;
+        const domItem = statForeachElement.firstElementChild.cloneNode(true);
+        domItem.setAttribute("state-foreach-id", statForeachElement.getAttribute("id"));
+        domItem.setAttribute('state-scope', `${statForeachElement.getAttribute('state-foreach')}[${index}]`);
+
+        Array.from(stateTemplate.keys()).forEach(itemPath => {
+            const tempaltePathMap = stateTemplate.get(itemPath);
+            Array.from(tempaltePathMap.keys()).forEach(templatePath => {
+                applyStateChange(state, tempaltePathMap, itemPath.replace('@', `${absPath}[${index}]`), templatePath, undefined, undefined, domItem);
+            });
+        });
+
+        return domItem;
+    }
+
+    function applyStateChange(state, elementMap, absPath, elementOrPath, src, dst, stateForeachItemRoot = null) {
         const stateType = elementMap.get(elementOrPath);
         const stateValue = getJSONPath(state._current, absPath);
         const element = (stateForeachItemRoot && Array.isArray(elementOrPath)) ? elementOrPath.reduce((el,child) => el.children[child], stateForeachItemRoot) : elementOrPath;
@@ -331,27 +364,23 @@
             }
         }
         else if (stateType === 'state-foreach') {
-            const stateTemplate = state._stateForeachItemBindings.get(element.getAttribute("id"));
-            element.parentNode.querySelectorAll(`[state-foreach-id="${element.getAttribute("id")}"]`).forEach((el, index) => {
-                Array.from(stateTemplate.keys()).map(path => path.replace('@', `${absPath}[${index}]`)).forEach(path => unregisterBinding(state, path, el));
-                el.remove();
-            });
-            if (stateValue) {
-                (Array.isArray(stateValue) ? stateValue : [ stateValue ]).map((item, index) => {
-                    item.$index = index;
-                    const domItem = element.firstElementChild.cloneNode(true);
-                    domItem.setAttribute("state-foreach-id", element.getAttribute("id"));
-                    domItem.setAttribute('state-scope', `${element.getAttribute('state-foreach')}[${index}]`);
-
-                    Array.from(stateTemplate.keys()).forEach(itemPath => {
-                        const tempaltePathMap = stateTemplate.get(itemPath);
-                        Array.from(tempaltePathMap.keys()).forEach(templatePath => {
-                            applyState(state, tempaltePathMap, itemPath.replace('@', `${absPath}[${index}]`), templatePath, domItem);
-                        });
-                    });
-
-                    return domItem;
-                }).reverse().forEach(i => element.after(i));
+            if (src === undefined && dst === undefined) {
+                removeStateForeachItem(element);
+                if (stateValue) {
+                    (Array.isArray(stateValue) ? stateValue : [ stateValue ])
+                        .map((item, index) => foreachStateItemFactory(state, absPath, element, item, index))
+                        .reverse()
+                        .forEach(el => element.after(el));
+                }
+            } else {
+                for (let i=0; i<Math.max(src.length, dst.length); ++i) {
+                    if (src.at(i) && dst.at(i) === undefined) {
+                        removeStateForeachItem(element, i);
+                    } else if (src.at(i) === undefined && dst.at(i)) {
+                        const el = foreachStateItemFactory(state, absPath, element, dst.at(i), i);
+                        Array.from(element.parentNode.querySelectorAll(`[state-foreach-id="${element.getAttribute("id")}"]`)).at(-1).after(el);
+                    }
+                }
             }
         }
     }
@@ -429,7 +458,7 @@
                     Array.from(this._bindings.keys()).forEach(absPath => {
                         const elementMap = this._bindings.get(absPath);
                         Array.from(elementMap.keys()).forEach(element => {
-                            applyState(this, elementMap, absPath, element);
+                            applyStateChange(this, elementMap, absPath, element);
                         });
                     });
                 } else {
@@ -437,7 +466,7 @@
                         if (this._bindings.has(path)) {
                             const elementMap = this._bindings.get(path);
                             Array.from(elementMap.keys()).forEach(element => {
-                                applyState(this, elementMap, path, element);
+                                applyStateChange(this, elementMap, path, element, src, dst);
                             });
                         }
                     });
