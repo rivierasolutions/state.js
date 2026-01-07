@@ -6,11 +6,19 @@
             split = split.slice(1);
         }
         let leafp = split[split.length-1];
-        let parent = split.slice(0, split.length-1).reduce((obj, p) => { 
-            if (!obj.hasOwnProperty(p)) {
-                obj[p] = {};
+        let parent = split.slice(0, split.length-1).reduce((obj, p) => {
+            const match = /^(.*)\[([0-9]+)\]$/.exec(p);
+            if (match) {
+                if (!obj.hasOwnProperty(match[1])) {
+                    obj[match[1]] = [];
+                }
+                return obj[match[1]].at(parseInt(match[2]));
+            } else {
+                if (!obj.hasOwnProperty(p)) {
+                    obj[p] = {};
+                }
+                return obj[p];
             }
-            return obj[p];
         }, root);
         if (!parent.hasOwnProperty(leafp)) {
             parent[leafp] = leaf ?? {};
@@ -183,6 +191,7 @@
                 absJsonPath: jsonPath.replace('@', absPath),
                 isStateForeachItemScope
             };
+            node.setAttribute('state-scope', jsonPath.replace('@', absPath));
             scope = result.scope;
             scopeRootElement = result.scopeRootElement;
             absPath = result.absPath;
@@ -198,7 +207,7 @@
             if (!node.hasAttribute('state-placeholder')) {
                 placeholder = placeholderFactory({ 'state-foreach': jsonPath, 'id': `state-auto-id-${++(state._idSequence.next)}` });
                 node.removeAttribute('state-foreach');
-                node.setAttribute('state-scope', jsonPath);
+                node.setAttribute('state-scope', jsonPath.replace('@', absPath));
                 node.replaceWith(placeholder);
                 placeholder.appendChild(node);
                 visitContext.walker.currentNode = placeholder;
@@ -256,10 +265,10 @@
         });
         if (node.hasAttribute('state-listen')) {
             const jsonPath = node.getAttribute('state-listen');
-            if (!node.hasAttribute("id")) {
-                node.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`)
-            }
             if (!isStateForeachItemScope) {
+                if (!node.hasAttribute("id")) {
+                    node.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
+                }
                 buildJSONPath(scope, jsonPath, node.getAttribute("id"));
                 registerBinding(state, jsonPath.replace('@', absPath), 'state-listen', node);
             } else {
@@ -269,7 +278,8 @@
         return result;
     }
 
-    function removeStateForeachItem(statForeachElement, index) {
+    function removeStateForeachItem(state, absPath, statForeachElement, index) {
+        const stateTemplate = state._stateForeachItemBindings.get(statForeachElement.getAttribute("id"));
         const query = statForeachElement.parentNode.querySelectorAll(`[state-foreach-id="${statForeachElement.getAttribute("id")}"]`);
         function remove(el, index) {
             Array.from(stateTemplate.keys()).map(path => path.replace('@', `${absPath}[${index}]`)).forEach(path => unregisterBinding(state, path, el));
@@ -278,7 +288,7 @@
         if (index === undefined) {
             query.forEach(remove);
         } else {
-            let el = query.at(index);
+            let el = Array.from(query).at(index);
             if (el) {
                 remove(el, index);
             }
@@ -290,7 +300,7 @@
         item.$index = index;
         const domItem = statForeachElement.firstElementChild.cloneNode(true);
         domItem.setAttribute("state-foreach-id", statForeachElement.getAttribute("id"));
-        domItem.setAttribute('state-scope', `${statForeachElement.getAttribute('state-foreach')}[${index}]`);
+        domItem.setAttribute('state-scope', `${absPath}[${index}]`);
 
         Array.from(stateTemplate.keys()).forEach(itemPath => {
             const tempaltePathMap = stateTemplate.get(itemPath);
@@ -365,7 +375,7 @@
         }
         else if (stateType === 'state-foreach') {
             if (src === undefined && dst === undefined) {
-                removeStateForeachItem(element);
+                removeStateForeachItem(state, absPath, element);
                 if (stateValue) {
                     (Array.isArray(stateValue) ? stateValue : [ stateValue ])
                         .map((item, index) => foreachStateItemFactory(state, absPath, element, item, index))
@@ -375,13 +385,19 @@
             } else {
                 for (let i=0; i<Math.max(src.length, dst.length); ++i) {
                     if (src.at(i) && dst.at(i) === undefined) {
-                        removeStateForeachItem(element, i);
+                        removeStateForeachItem(state, absPath, element, i);
                     } else if (src.at(i) === undefined && dst.at(i)) {
                         const el = foreachStateItemFactory(state, absPath, element, dst.at(i), i);
                         Array.from(element.parentNode.querySelectorAll(`[state-foreach-id="${element.getAttribute("id")}"]`)).at(-1).after(el);
                     }
                 }
             }
+        }
+        else if (stateType === 'state-listen' && stateForeachItemRoot) {
+            if (!element.hasAttribute("id")) {
+                element.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
+            }
+            buildJSONPath(state._current, absPath, element.getAttribute("id"));
         }
     }
 
@@ -445,6 +461,18 @@
             current: function() {
                 return this._current;
             },
+            scopeOf(element) {
+                if (!rootElement.contains(element)) {
+                    return undefined;
+                }
+                while (element != rootElement) {
+                    if (element.hasAttribute("state-scope")) {
+                        return getJSONPath(this._current, element.getAttribute("state-scope"));
+                    }
+                    element = element.parentElement;
+                }
+                return this._current;
+            },
             update: function(newState) {
 
                 const changes = mergeAndBuildChangeIndex(this._current, newState);
@@ -474,7 +502,7 @@
             },
             subState(element, initialSubState) {
                 return load(element, initialSubState);
-            }
+            },
         };
 
         rootElement.state._current = {};

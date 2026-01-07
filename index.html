@@ -19,6 +19,7 @@
                         <input type="number" state-attr-value="@.number" /> <br>
                     </li>
                 </ul>
+                <button state-listen="@.onRemove">Remove</button>
             </li>
         </ul>
         <br>
@@ -38,6 +39,13 @@
                 subState.update({
                     someText: `Lorem ipsum dolor sit amet ${++number}`,
                     stateArray: array
+                });
+                document.getElementById(subState.current().stateArray.at(-1).onRemove).addEventListener('click', (e) => {
+                    array.splice(subState.scopeOf(e.target).$index, 1);
+                    subState.update({
+                        someText: `Lorem ipsum dolor sit amet ${++number}`,
+                        stateArray: array
+                    });
                 });
             });
 
