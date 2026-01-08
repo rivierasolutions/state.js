@@ -11,8 +11,7 @@
         <input type="text" state-attr-value="@.someText" /> <br>
         <ul>
             <li state-foreach="@.stateArray">
-                <state state-content="@.text"></state>
-                <input type="text" state-attr-value="@.text" /> <br>
+                <state state-content="@.$index"></state>: <state state-content="@.text"></state> <input type="text" state-attr-value="@.text" /> <br>
                 <ul>
                     <li state-foreach="@.numberArray" state-attr-class="@.numberClass">
                         <state state-content="@.$index"></state>: <state state-content="@.number"></state>
@@ -30,22 +29,18 @@
         document.addEventListener('StateLoaded', () => {
 
             let number = 0;
-            let array = [ { text: 'aaa', numberArray: [{ number: 111 }] }, { text: 'bbb', numberArray: [{ number: 222, numberClass: 'red' }] } ];
 
-            let subState = document.state.subState(document.body, { stateArray: array });
+            let subState = document.state.subState(document.body);
+            subState.update({ stateArray: [ { text: 'aaa', numberArray: [{ number: 111 }] }, { text: 'bbb', numberArray: [{ number: 222, numberClass: 'red' }] } ] });
 
             document.getElementById(subState.current().onButtonClick).addEventListener('click', () => {
-                array.push({ text: 'added', numberArray: [{ number: 303, numberClass: 'red' }, { number: 404 }] });
                 subState.update({
                     someText: `Lorem ipsum dolor sit amet ${++number}`,
-                    stateArray: array
+                    stateArray: subState.current().stateArray.concat([ { text: 'added', numberArray: [{ number: 303, numberClass: 'red' }, { number: 404 }] } ])
                 });
                 document.getElementById(subState.current().stateArray.at(-1).onRemove).addEventListener('click', (e) => {
-                    array.splice(subState.scopeOf(e.target).$index, 1);
-                    subState.update({
-                        someText: `Lorem ipsum dolor sit amet ${++number}`,
-                        stateArray: array
-                    });
+                    const toRemove = subState.scopeOf(e.target).$index;
+                    subState.update({ stateArray: subState.current().stateArray.filter((o,i) => i !== toRemove) });
                 });
             });
 

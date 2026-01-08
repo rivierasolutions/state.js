@@ -31,9 +31,13 @@
         if (split[0] === '$' || split[0] === '@') {
             split = split.slice(1);
         }
+        if (!split.length) {
+            return root;
+        }
         const res = split.reduce((obj, p) => {
+            if (!(obj instanceof Object)) { return undefined; }
             const match = /^(.*)\[([0-9]+)\]$/.exec(p);
-            return match ? obj[match[1]][parseInt(match[2])] : obj[p];
+            return match ? (Array.isArray(obj[match[1]]) ? obj[match[1]].at(parseInt(match[2])) : undefined) : obj[p];
         }, root);
         return res;
     }
@@ -44,10 +48,21 @@
             split = split.slice(1);
         }
         const parent = split.slice(0, split.length-1).reduce((obj, p) => {
+            if (!(obj instanceof Object)) { return undefined; }
             const match = /^(.*)\[([0-9]+)\]$/.exec(p);
-            return match ? obj[match[1]][parseInt(match[2])] : obj[p];
+            return match ? (Array.isArray(obj[match[1]]) ? obj[match[1]].at(parseInt(match[2])) : undefined) : obj[p];
         }, root);
-        parent[split[split.length-1]] = value;
+        if (parent) {
+            const match = /^(.*)\[([0-9]+)\]$/.exec(split.at(-1));
+            if (match && Array.isArray(parent[match[1]])) {
+                const index = parseInt(match[2]);
+                if (index < parent[match[1]].length) {
+                    parent[match[1]][index] = value;
+                }
+            } else if (!match) {
+                parent[split.at(-1)] = value;
+            }
+        }
     }
 
     function placeholderFactory(attrs) {
@@ -105,8 +120,8 @@
         state._bindings.get(absPath).set(element, type);
     }
 
-    function unregisterBinding(state, absPath, element) {
-        state._bindings.has(absPath) && state._bindings.get(absPath).delete(element);
+    function unregisterBinding(state, absPath, elementOrPath) {
+        state._bindings.has(absPath) && state._bindings.get(absPath).delete(elementOrPath);
     }
 
     function registerStateForeachBinding(state, relPath, type, element, statForeachRootScope) {
@@ -128,6 +143,13 @@
             element = element.parentElement;
         }
         itemBindings.get(relPath).set(path, type);
+    }
+
+    function registerStateForeachScope(state, absPath) {
+        if (!state._stateForeachScopes.has(absPath)) {
+            state._stateForeachScopes.set(absPath, {});
+        }
+        return state._stateForeachScopes.get(absPath);
     }
 
     function bindToValueAttr(element, absPath, state) {
@@ -186,7 +208,9 @@
                 && node.parentElement?.hasAttribute('state-placeholder')
                 && node.parentElement?.hasAttribute('state-foreach');
             result = { 
-                scope: isStateForeachItemScope ? {} : buildJSONPath(scope, jsonPath, {}),
+                scope: isStateForeachItemScope 
+                    ? registerStateForeachScope(state, node.parentElement?.getAttribute('state-foreach').replace('@', absPath))
+                    : buildJSONPath(scope, jsonPath, {}),
                 scopeRootElement: node,
                 absJsonPath: jsonPath.replace('@', absPath),
                 isStateForeachItemScope
@@ -199,15 +223,13 @@
         }
         if (node.hasAttribute('state-foreach')) {
             const jsonPath = node.getAttribute('state-foreach');
-            if (!isStateForeachItemScope) {
-                buildJSONPath(scope, jsonPath, []);
-            }
+            buildJSONPath(scope, jsonPath, []);
 
             let placeholder = node;
             if (!node.hasAttribute('state-placeholder')) {
                 placeholder = placeholderFactory({ 'state-foreach': jsonPath, 'id': `state-auto-id-${++(state._idSequence.next)}` });
                 node.removeAttribute('state-foreach');
-                node.setAttribute('state-scope', jsonPath.replace('@', absPath));
+                node.setAttribute('state-scope', `${jsonPath.replace('@', absPath)}[]`);
                 node.replaceWith(placeholder);
                 placeholder.appendChild(node);
                 visitContext.walker.currentNode = placeholder;
@@ -222,8 +244,8 @@
         }
         if (node.hasAttribute('state-if')) {
             const jsonPath = node.getAttribute('state-if');
+            buildJSONPath(scope, jsonPath, false);
             if (!isStateForeachItemScope) {
-                buildJSONPath(scope, jsonPath, false);
                 registerBinding(state, jsonPath.replace('@', absPath), 'state-if', node);
             } else {
                 registerStateForeachBinding(state, jsonPath, 'state-if', node, scopeRootElement)
@@ -231,8 +253,8 @@
         }
         if (node.hasAttribute('state-if-not')) {
             const jsonPath = node.getAttribute('state-if-not');
+            buildJSONPath(scope, jsonPath, false);
             if (!isStateForeachItemScope) {
-                buildJSONPath(scope, jsonPath, false);
                 registerBinding(state, jsonPath.replace('@', absPath), 'state-if-not', node);
             } else {
                 registerStateForeachBinding(state, jsonPath, 'state-if-not', node, scopeRootElement)
@@ -240,8 +262,8 @@
         }
         if (node.hasAttribute('state-content')) {
             const jsonPath = node.getAttribute('state-content');
+            buildJSONPath(scope, jsonPath, node.textContent ?? '');
             if (!isStateForeachItemScope) {
-                buildJSONPath(scope, jsonPath, node.textContent ?? '');
                 registerBinding(state, jsonPath.replace('@', absPath), 'state-content', node);
             } else {
                 registerStateForeachBinding(state, jsonPath, 'state-content', node, scopeRootElement)
@@ -250,8 +272,8 @@
         Array.from(node.attributes).filter(attr => attr.name.startsWith('state-attr-')).forEach(attr => {
             const jsonPath = attr.value;
             const attrName = attr.name.replace('state-attr-', '');
+            buildJSONPath(scope, jsonPath, node.getAttribute(attrName) ?? '');
             if (!isStateForeachItemScope) {
-                buildJSONPath(scope, jsonPath, node.getAttribute(attrName) ?? '');
                 registerBinding(state, jsonPath.replace('@', absPath), attr.name, node);
             } else {
                 registerStateForeachBinding(state, jsonPath, attr.name, node, scopeRootElement)
@@ -269,8 +291,8 @@
                 if (!node.hasAttribute("id")) {
                     node.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
                 }
-                buildJSONPath(scope, jsonPath, node.getAttribute("id"));
                 registerBinding(state, jsonPath.replace('@', absPath), 'state-listen', node);
+                buildJSONPath(scope, jsonPath, node.getAttribute("id"));
             } else {
                 registerStateForeachBinding(state, jsonPath, 'state-listen', node, scopeRootElement)
             }
@@ -278,47 +300,63 @@
         return result;
     }
 
-    function removeStateForeachItem(state, absPath, statForeachElement, index) {
+    function removeStateForeachItem(state, absPath, statForeachElement, existingItemsQuery, index) {
         const stateTemplate = state._stateForeachItemBindings.get(statForeachElement.getAttribute("id"));
-        const query = statForeachElement.parentNode.querySelectorAll(`[state-foreach-id="${statForeachElement.getAttribute("id")}"]`);
         function remove(el, index) {
             Array.from(stateTemplate.keys()).map(path => path.replace('@', `${absPath}[${index}]`)).forEach(path => unregisterBinding(state, path, el));
             el.remove();
         }
         if (index === undefined) {
-            query.forEach(remove);
+            existingItemsQuery.forEach(remove);
         } else {
-            let el = Array.from(query).at(index);
+            let el = Array.from(existingItemsQuery).at(index);
             if (el) {
                 remove(el, index);
             }
         }
     }
 
-    function foreachStateItemFactory(state, absPath, statForeachElement, item, index) {
-        const stateTemplate = state._stateForeachItemBindings.get(statForeachElement.getAttribute("id"));
-        item.$index = index;
+    function foreachStateItemFactory(state, absPath, statForeachElement, index) {
         const domItem = statForeachElement.firstElementChild.cloneNode(true);
         domItem.setAttribute("state-foreach-id", statForeachElement.getAttribute("id"));
         domItem.setAttribute('state-scope', `${absPath}[${index}]`);
 
+        const stateTemplate = state._stateForeachItemBindings.get(statForeachElement.getAttribute("id"));
         Array.from(stateTemplate.keys()).forEach(itemPath => {
             const tempaltePathMap = stateTemplate.get(itemPath);
             Array.from(tempaltePathMap.keys()).forEach(templatePath => {
-                applyStateChange(state, tempaltePathMap, itemPath.replace('@', `${absPath}[${index}]`), templatePath, undefined, undefined, domItem);
+                registerBinding(state, itemPath.replace('@', `${absPath}[${index}]`), tempaltePathMap.get(templatePath), { DOMPath: templatePath, stateForeachItemRoot: domItem });
+                bindFoeachListItemState(state, domItem, itemPath.replace('@', `${absPath}[${index}]`), templatePath, tempaltePathMap.get(templatePath));
             });
         });
 
         return domItem;
     }
 
-    function applyStateChange(state, elementMap, absPath, elementOrPath, src, dst, stateForeachItemRoot = null) {
+    function bindFoeachListItemState(state, stateForeachItemRoot, absPath, DOMPath, stateType) {
+        const element = DOMPath.reduce((el,child) => el.children[child], stateForeachItemRoot)
+        if (stateType.startsWith('state-attr-')) {
+            const attrName = stateType.replace('state-attr-', '');
+            if (attrName === 'value') {
+                bindToValueAttr(element, absPath, state);
+            } else if (attrName === 'open') {
+                bindToOpenAttr(element, absPath, state);
+            }
+        }
+        else if (stateType === 'state-listen') {
+            if (!element.hasAttribute("id")) {
+                element.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
+            }
+            buildJSONPath(state._current, absPath, element.getAttribute("id"));
+        }
+    }
+
+    function applyStateChange(state, elementMap, absPath, elementOrPath, src, dst) {
         const stateType = elementMap.get(elementOrPath);
         const stateValue = getJSONPath(state._current, absPath);
-        const element = (stateForeachItemRoot && Array.isArray(elementOrPath)) ? elementOrPath.reduce((el,child) => el.children[child], stateForeachItemRoot) : elementOrPath;
-        if (stateForeachItemRoot) {
-            registerBinding(state, absPath, stateType, element);
-        }
+        const element = elementOrPath instanceof HTMLElement
+            ? elementOrPath
+            : elementOrPath.DOMPath.reduce((el,child) => el.children[child], elementOrPath.stateForeachItemRoot);
 
         if (stateType === 'state-content') {    
             element.textContent = stateValue;
@@ -327,14 +365,8 @@
             const attrName = stateType.replace('state-attr-', '');
             if (attrName === 'value') {
                 element.value = stateValue;
-                if (stateForeachItemRoot) {
-                    bindToValueAttr(element, absPath, state);
-                }
             } else if (attrName === 'open') {
                 element.open = !!stateValue;
-                if (stateForeachItemRoot) {
-                    bindToOpenAttr(element, absPath, state);
-                }
             } else {
                 element.setAttribute(stateType.replace('state-attr-', ''), stateValue);
             }
@@ -374,92 +406,92 @@
             }
         }
         else if (stateType === 'state-foreach') {
+            const forEachId = element.getAttribute("id");
+            const existingItemsQuery = element.parentNode.querySelectorAll(`[state-foreach-id="${forEachId}"]`);
             if (src === undefined && dst === undefined) {
-                removeStateForeachItem(state, absPath, element);
+                removeStateForeachItem(state, absPath, element, existingItemsQuery);
                 if (stateValue) {
                     (Array.isArray(stateValue) ? stateValue : [ stateValue ])
-                        .map((item, index) => foreachStateItemFactory(state, absPath, element, item, index))
+                        .map((item, index) => foreachStateItemFactory(state, absPath, element, index))
                         .reverse()
                         .forEach(el => element.after(el));
                 }
             } else {
-                for (let i=0; i<Math.max(src.length, dst.length); ++i) {
-                    if (src.at(i) && dst.at(i) === undefined) {
-                        removeStateForeachItem(state, absPath, element, i);
-                    } else if (src.at(i) === undefined && dst.at(i)) {
-                        const el = foreachStateItemFactory(state, absPath, element, dst.at(i), i);
-                        Array.from(element.parentNode.querySelectorAll(`[state-foreach-id="${element.getAttribute("id")}"]`)).at(-1).after(el);
+                if (src.length > stateValue.length) {
+                    Array.from(existingItemsQuery).slice(-1*(src.length - stateValue.length)).forEach((el, index) => {
+                        removeStateForeachItem(state, absPath, element, existingItemsQuery, src.length-1-index);
+                    });
+                } else if (src.length < stateValue.length) {
+                    for (let i=0; i<stateValue.length - src.length; ++i) {
+                        const el = foreachStateItemFactory(state, absPath, element, src.length+i);
+                        const query = element.parentNode.querySelectorAll(`[state-foreach-id="${forEachId}"]`);
+                        (query.length ? Array.from(query).at(-1) : element).after(el);
                     }
                 }
             }
         }
-        else if (stateType === 'state-listen' && stateForeachItemRoot) {
-            if (!element.hasAttribute("id")) {
-                element.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
-            }
+        else if (stateType === 'state-listen') {
             buildJSONPath(state._current, absPath, element.getAttribute("id"));
         }
     }
 
-    function mergeAndBuildChangeIndex(oldState, newState) {
+    function buildArrayChanges(path, src, dst, toMerge, stateForeachScopes, onNotEqual) {
+        const stateScope = stateForeachScopes.get(path.replace(/\[[0-9+]\]/g, '[]'));
+        const arrayChanges = { path, src, dst, pending: true };
+        dst.forEach((e,i) => e.$index = i);
+        if (!Array.isArray(src)) {
+            arrayChanges.pending = false;
+            onNotEqual?.forEach(f => f());
+            dst.forEach((e,i) => {
+                toMerge.push({ path: `${path}[${i}]`, src: i == 0 ? src : structuredClone(stateScope), dst: e });
+            });
+        } else if (dst.length != src.length) {
+            arrayChanges.pending = false;
+            onNotEqual?.forEach(f => f());
+            dst.forEach((e,i) => {
+                toMerge.push({ path: `${path}[${i}]`, src: src.at(i) ?? structuredClone(stateScope), dst: e });
+            });
+        } else {
+            dst.forEach((e, i) => {
+                toMerge.push({ path: `${path}[${i}]`, src: src[i], dst: e, onNotEqual: [ ...(onNotEqual ?? []), () => { arrayChanges.pending = false; } ] });
+            });
+        }
+        return arrayChanges;
+    }
+
+    function buildObjectChanges(path, src, dst, toMerge, onNotEqual) {
+        Object.keys(dst).forEach(key => {
+            toMerge.push({ path: `${path}.${key}`, src: src?.hasOwnProperty(key) ? src[key] : undefined, dst: dst[key], onNotEqual });
+        });
+    }
+
+    function mergeChanges(src, dst, state) {
+        const stateForeachScopes = state._stateForeachScopes;
         const changeIndex = [];
-        if (newState && newState instanceof Object) {
-            const toMerge = [ { path: "$", src: oldState, dst: newState } ];
+        if (dst && dst instanceof Object) {
+            const toMerge = [ { path: "$", src, dst } ];
             while (toMerge.length) {
-                const tuple = toMerge.pop();
-                if (tuple.src !== tuple.dst) {
-                    changeIndex.push(tuple);
+                const tuple = toMerge.shift();
+                if (Array.isArray(tuple.dst)) {
+                    changeIndex.push(buildArrayChanges(tuple.path, tuple.src, tuple.dst, toMerge, stateForeachScopes, tuple.onNotEqual));
+                } else if (tuple.dst instanceof Object) {
+                    buildObjectChanges(tuple.path, tuple.src, tuple.dst, toMerge, tuple.onNotEqual);
+                    Object.assign(src, dst);
+                } else {
+                    if (tuple.dst !== tuple.src) {
+                        changeIndex.push(tuple);
+                        tuple.onNotEqual?.forEach(f => f());
+                    }
                 }
-                Object.keys(tuple.dst).forEach(key => {
-                    if (!tuple.src.hasOwnProperty(key)) {
-                        return;
-                    }
-                    const path = `${tuple.path}.${key}`;
-                    if (Array.isArray(tuple.src[key])) {
-                        let anyItemChanges = false;
-                        if (!Array.isArray(tuple.dst[key])) {
-                            anyItemChanges = true;
-                            if (tuple.src[key].length && tuple.dst[key] instanceof Object) {
-                                toMerge.push({ path: `${path}[0]`, src: tuple.src[key][0], dst: tuple.dst[key] });
-                            }
-                        } else if (tuple.src[key].length !== tuple.dst[key].length) {
-                            anyItemChanges = true;
-                            for (let i=0; i<Math.max(tuple.src[key].length, tuple.dst[key].length); ++i) {
-                                if (tuple.src[key].at(i) && tuple.dst[key].at(i) instanceof Object) {
-                                    toMerge.push({ path: `${path}[${i}]`, src: tuple.src[key].at(i), dst: tuple.dst[key].at(i) });
-                                }
-                            }
-                        } else {
-                            tuple.dst[key].forEach((item, i) => {
-                                anyItemChanges = (tuple.src[key][i] !== item);
-                                if (item instanceof Object) {
-                                    toMerge.push({ path: `${path}[${i}]`, src: tuple.src[key][i], dst: item });
-                                }
-                            });
-                        }
-                        if (anyItemChanges) {
-                            changeIndex.push({ path, src: tuple.src[key], dst: tuple.dst[key] });
-                            tuple.src[key] = Array.isArray(tuple.dst[key]) ? tuple.dst[key].slice() : [ tuple.dst[key] ];
-                        }
-                    } else {
-                        if (tuple.src[key] !== tuple.dst[key]) {
-                            changeIndex.push({ path, src: tuple.src[key], dst: tuple.dst[key] });
-                            tuple.src[key] = tuple.dst[key];
-                        }
-                    }
-                    if (tuple.dst[key] instanceof Object && !Array.isArray(tuple.dst[key])) {
-                        toMerge.push({ path, src: tuple.src[key], dst: tuple.dst[key] });
-                    }
-                });
             }
         }
-        return changeIndex;
+        return changeIndex.filter(ch => !ch.pending);
     }
     
-    function load(rootElement, initialState) {
+    function load(rootElement) {
         rootElement.state = {
             current: function() {
-                return this._current;
+                return structuredClone(this._current);
             },
             scopeOf(element) {
                 if (!rootElement.contains(element)) {
@@ -475,33 +507,28 @@
             },
             update: function(newState) {
 
-                const changes = mergeAndBuildChangeIndex(this._current, newState);
-
+                const changes = mergeChanges(this._current, structuredClone(newState), this);
                 this.apply(changes);
 
                 rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
             },
             apply: function(changes) {
                 if (!changes && !Array.isArray(changes)) {
-                    Array.from(this._bindings.keys()).forEach(absPath => {
-                        const elementMap = this._bindings.get(absPath);
-                        Array.from(elementMap.keys()).forEach(element => {
-                            applyStateChange(this, elementMap, absPath, element);
-                        });
+                    this._bindings.keys().forEach(path => {
+                        const elementMap = this._bindings.get(path);
+                        elementMap.keys().forEach(element => applyStateChange(this, elementMap, path, element, undefined, undefined));
                     });
-                } else {
-                    changes.forEach(({ path, src, dst }) => {
-                        if (this._bindings.has(path)) {
-                            const elementMap = this._bindings.get(path);
-                            Array.from(elementMap.keys()).forEach(element => {
-                                applyStateChange(this, elementMap, path, element, src, dst);
-                            });
-                        }
-                    });
+                    return;
                 }
+                changes.forEach(({ path, src, dst }) => {
+                    if (this._bindings.has(path)) {
+                        const elementMap = this._bindings.get(path);
+                        elementMap.keys().forEach(element => applyStateChange(this, elementMap, path, element, src, dst));
+                    }
+                });
             },
-            subState(element, initialSubState) {
-                return load(element, initialSubState);
+            subState(element) {
+                return load(element);
             },
         };
 
@@ -509,11 +536,10 @@
         rootElement.state._idSequence = { next: 0 };
         rootElement.state._bindings = new Map();
         rootElement.state._stateForeachItemBindings = new Map();
+        rootElement.state._stateForeachScopes = new Map();
 
         if (!(rootElement == document && rootElement.documentElement.hasAttribute('state-ignore'))) {
             domVisitor(rootElement, rootElement.state._current, (ctx) => visitAndBuild(ctx,rootElement.state));
-
-            mergeAndBuildChangeIndex(rootElement.state._current, initialState);
             rootElement.state.apply();
         }
         rootElement.dispatchEvent(new CustomEvent(`StateLoaded`));
