@@ -26,6 +26,45 @@
         return parent[leafp];
     }
 
+    function buildFrozenJSONPath(state, path, leaf) {
+        state._current = { ...state._current };
+        const thawed = [ state._current ];
+        let split = path.split('.');
+        if (split[0] === '$' || split[0] === '@') {
+            split = split.slice(1);
+        }
+        let leafp = split[split.length-1];
+        let parent = split.slice(0, split.length-1).reduce((obj, p) => {
+            const match = /^(.*)\[([0-9]+)\]$/.exec(p);
+            if (match) {
+                if (!obj.hasOwnProperty(match[1])) {
+                    obj[match[1]] = [];
+                } else {
+                    obj[match[1]] = [...(obj[match[1]])];
+                }
+                const index = parseInt(match[2]);
+                if (obj[match[1]].at(index)) {
+                    obj[match[1]][index] = { ...obj[match[1]][index] };
+                    thawed.push(obj[match[1]][index]);
+                }
+                return obj[match[1]].at(index);
+            } else {
+                if (!obj.hasOwnProperty(p)) {
+                    obj[p] = {};
+                } else {
+                    obj[p] = {...obj[p]};
+                    thawed.push(obj[p]);
+                }
+                return obj[p];
+            }
+        }, state._current);
+        if (!parent.hasOwnProperty(leafp)) {
+            parent[leafp] = leaf ?? {};
+        }
+        thawed.forEach(o => Object.freeze(thawed));
+        return parent[leafp];
+    }
+
     function getJSONPath(root, path) {
         let split = path.split('.');
         if (split[0] === '$' || split[0] === '@') {
@@ -42,7 +81,9 @@
         return res;
     }
 
-    function setJSONPath(root, path, value) {
+    function setFrozenJSONPath(state, path, value) {
+        state._current = { ...state._current };
+        const thawed = [ state._current ];
         let split = path.split('.');
         if (split[0] === '$' || split[0] === '@') {
             split = split.slice(1);
@@ -50,8 +91,18 @@
         const parent = split.slice(0, split.length-1).reduce((obj, p) => {
             if (!(obj instanceof Object)) { return undefined; }
             const match = /^(.*)\[([0-9]+)\]$/.exec(p);
-            return match ? (Array.isArray(obj[match[1]]) ? obj[match[1]].at(parseInt(match[2])) : undefined) : obj[p];
-        }, root);
+            if (match) {
+                obj[match[1]] = [...(obj[match[1]])];
+                thawed.push(obj[match[1]]);
+                const index = parseInt(match[2]);
+                obj[match[1]][index] = { ...(obj[match[1]][index]) };
+                return obj[match[1]][index];
+            } else {
+                obj[p] = {...obj[p]};
+                thawed.push(obj[p]);
+                return obj[p];
+            }
+        }, state._current);
         if (parent) {
             const match = /^(.*)\[([0-9]+)\]$/.exec(split.at(-1));
             if (match && Array.isArray(parent[match[1]])) {
@@ -62,6 +113,10 @@
             } else if (!match) {
                 parent[split.at(-1)] = value;
             }
+        }
+        thawed.forEach(o => Object.freeze(o));
+        if (value instanceof Object) {
+            Object.freeze(value);
         }
     }
 
@@ -155,31 +210,31 @@
     function bindToValueAttr(element, absPath, state) {
         if (element.tagName === 'SELECT') {
             element.addEventListener('change', (event) => {
-                setJSONPath(state._current, absPath, event.target.value);
+                setFrozenJSONPath(state, absPath, event.target.value);
                 state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.value }]);
             });
         }
         else if (element.getAttribute('contenteditable') === 'true') {
             element.addEventListener('input', (event) => {
-                setJSONPath(state._current, absPath, event.target.textContent);
+                setFrozenJSONPath(state, absPath, event.target.textContent);
                 state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.textContent }]);
             });
         }
         else if (element.tagName === 'INPUT' && (element.getAttribute('type') === 'checkbox' || element.getAttribute('type') === 'radio')) {
             element.addEventListener('change', (event) => {
-                setJSONPath(state._current, absPath, event.target.checked);
+                setFrozenJSONPath(state, absPath, event.target.checked);
                 state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.checked }]);
             });
         }
         else if (element.tagName === 'INPUT' && element.getAttribute('type') === 'file') {
             element.addEventListener('change', (event) => {
-                setJSONPath(state._current, absPath, event.target.files);
+                setFrozenJSONPath(state, absPath, event.target.files);
                 state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.files }]);
             });
         }
         else if ((element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' )) {
             element.addEventListener('input', (event) => {
-                setJSONPath(state._current, absPath, event.target.value);
+                setFrozenJSONPath(state, absPath, event.target.value);
                 state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.value }]);
             });
         }
@@ -188,7 +243,7 @@
     function bindToOpenAttr(element, absPath, state) {
         if (element.tagName === 'DETAILS') {
             element.addEventListener('toggle', (event) => {
-                setJSONPath(state._current, absPath, event.target.open);
+                setFrozenJSONPath(state, absPath, event.target.open);
                 state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.open }]);
             });
         }
@@ -347,7 +402,7 @@
             if (!element.hasAttribute("id")) {
                 element.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
             }
-            buildJSONPath(state._current, absPath, element.getAttribute("id"));
+            buildFrozenJSONPath(state, absPath, element.getAttribute("id"));
         }
     }
 
@@ -435,33 +490,41 @@
         }
     }
 
-    function buildArrayChanges(path, src, dst, toMerge, stateForeachScopes, onNotEqual) {
+    function buildArrayChanges(path, src, dst, res, toMerge, stateForeachScopes, onNotEqual) {
         const stateScope = stateForeachScopes.get(path.replace(/\[[0-9+]\]/g, '[]'));
         const arrayChanges = { path, src, dst, pending: true };
-        dst.forEach((e,i) => e.$index = i);
+        dst.forEach((e,i) => { e.$index = i; });
+        toMerge.push({ commit: res, src, dst });
         if (!Array.isArray(src)) {
             arrayChanges.pending = false;
             onNotEqual?.forEach(f => f());
             dst.forEach((e,i) => {
-                toMerge.push({ path: `${path}[${i}]`, src: i == 0 ? src : structuredClone(stateScope), dst: e });
+                toMerge.push({ path: `${path}[${i}]`, src: i == 0 ? src : structuredClone(stateScope), dst: e, res: res[i] });
             });
         } else if (dst.length != src.length) {
             arrayChanges.pending = false;
             onNotEqual?.forEach(f => f());
             dst.forEach((e,i) => {
-                toMerge.push({ path: `${path}[${i}]`, src: src.at(i) ?? structuredClone(stateScope), dst: e });
+                toMerge.push({ path: `${path}[${i}]`, src: src.at(i) ?? structuredClone(stateScope), dst: e, res: res[i] });
             });
         } else {
             dst.forEach((e, i) => {
-                toMerge.push({ path: `${path}[${i}]`, src: src[i], dst: e, onNotEqual: [ ...(onNotEqual ?? []), () => { arrayChanges.pending = false; } ] });
+                toMerge.push({ path: `${path}[${i}]`, src: src[i], dst: e, res: res[i], onNotEqual: [ ...(onNotEqual ?? []), () => { arrayChanges.pending = false; } ] });
             });
         }
         return arrayChanges;
     }
 
-    function buildObjectChanges(path, src, dst, toMerge, onNotEqual) {
-        Object.keys(dst).forEach(key => {
-            toMerge.push({ path: `${path}.${key}`, src: src?.hasOwnProperty(key) ? src[key] : undefined, dst: dst[key], onNotEqual });
+    function buildObjectChanges(path, src, dst, res, toMerge, onNotEqual) {
+        toMerge.push({ commit: res, src, dst });
+        Object.keys(dst).forEach((key) => {
+            toMerge.push({
+                path: `${path}.${key}`,
+                src: src?.hasOwnProperty(key) ? src[key] : undefined,
+                dst: dst[key],
+                onNotEqual,
+                res: res[key]
+            });
         });
     }
 
@@ -469,14 +532,17 @@
         const stateForeachScopes = state._stateForeachScopes;
         const changeIndex = [];
         if (dst && dst instanceof Object) {
-            const toMerge = [ { path: "$", src, dst } ];
+            const res = { ...src, ...dst };
+            const toMerge = [ { path: "$", src, dst, res } ];
             while (toMerge.length) {
-                const tuple = toMerge.shift();
-                if (Array.isArray(tuple.dst)) {
-                    changeIndex.push(buildArrayChanges(tuple.path, tuple.src, tuple.dst, toMerge, stateForeachScopes, tuple.onNotEqual));
+                const tuple = toMerge.pop();
+                if (tuple.commit) {
+                    Object.assign(tuple.commit, { ...(Array.isArray(tuple.dst) ? [] : tuple.src), ...tuple.dst });
+                    Object.freeze(tuple.commit);
+                } else if (Array.isArray(tuple.dst)) {
+                    changeIndex.push(buildArrayChanges(tuple.path, tuple.src, tuple.dst, tuple.res, toMerge, stateForeachScopes, tuple.onNotEqual));
                 } else if (tuple.dst instanceof Object) {
-                    buildObjectChanges(tuple.path, tuple.src, tuple.dst, toMerge, tuple.onNotEqual);
-                    Object.assign(src, dst);
+                    buildObjectChanges(tuple.path, tuple.src, tuple.dst, tuple.res, toMerge, tuple.onNotEqual);
                 } else {
                     if (tuple.dst !== tuple.src) {
                         changeIndex.push(tuple);
@@ -484,6 +550,7 @@
                     }
                 }
             }
+            state._current = res;
         }
         return changeIndex.filter(ch => !ch.pending);
     }
@@ -491,7 +558,7 @@
     function load(rootElement) {
         rootElement.state = {
             current: function() {
-                return structuredClone(this._current);
+                return this._current;
             },
             scopeOf(element) {
                 if (!rootElement.contains(element)) {
