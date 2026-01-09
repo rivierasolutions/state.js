@@ -32,7 +32,10 @@
 
             let subState = document.state.subState(document.body);
             subState.update({ 
-                stateArray: [ { text: 'aaa', numberArray: [{ number: 111 }] }, { text: 'bbb', numberArray: [{ number: 222, numberClass: 'red' }] } ],
+                stateArray: [ 
+                    { text: 'aaa', numberArray: [{ number: 111 }], onRemove: { 'click': removeItem } },
+                    { text: 'bbb', numberArray: [{ number: 222, numberClass: 'red' }], onRemove: { 'click': removeItem } }
+                ],
                 onButtonClick: { 'click': buttonClicked }
             });
 
