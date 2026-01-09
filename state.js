@@ -211,10 +211,10 @@
     }
 
     function bindToStateListenAttr(element, previousStateValue, stateValue) {
+        Object.keys(previousStateValue ?? {}).forEach(k => {
+            element.removeEventListener(k, previousStateValue[k]);
+        });
         Object.keys(stateValue ?? {}).forEach(k => {
-            if (previousStateValue && previousStateValue[k]) {
-                element.removeEventListener(previousStateValue[k]);
-            }
             element.addEventListener(k, stateValue[k]);
         });
     }
