@@ -249,6 +249,10 @@
         }
     }
 
+    function bindToStateListenAttr(element, stateValue) {
+        Object.keys(stateValue ?? {}).forEach(k => element.addEventListener(k, stateValue[k]));
+    }
+
     function visitAndBuild(visitContext, state) {
         const node = visitContext.element;
         let scope = visitContext.scope;
@@ -347,7 +351,6 @@
                     node.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
                 }
                 registerBinding(state, jsonPath.replace('@', absPath), 'state-listen', node);
-                buildJSONPath(scope, jsonPath, node.getAttribute("id"));
             } else {
                 registerStateForeachBinding(state, jsonPath, 'state-listen', node, scopeRootElement)
             }
@@ -398,11 +401,8 @@
                 bindToOpenAttr(element, absPath, state);
             }
         }
-        else if (stateType === 'state-listen') {
-            if (!element.hasAttribute("id")) {
-                element.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
-            }
-            buildFrozenJSONPath(state, absPath, element.getAttribute("id"));
+        else if (stateType === 'state-listen' && !element.hasAttribute("id")) {
+            element.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
         }
     }
 
@@ -486,7 +486,7 @@
             }
         }
         else if (stateType === 'state-listen') {
-            buildJSONPath(state._current, absPath, element.getAttribute("id"));
+            bindToStateListenAttr(element, stateValue);
         }
     }
 
@@ -515,14 +515,16 @@
         return arrayChanges;
     }
 
-    function buildObjectChanges(path, src, dst, res, toMerge, onNotEqual) {
+    function buildObjectChanges(path, src, dst, res, toMerge, changeIndex, onNotEqual) {
         toMerge.push({ commit: res, src, dst });
+        const objectChanges = { path, src, dst, pending: true };
+        changeIndex.push(objectChanges);
         Object.keys(dst).forEach((key) => {
             toMerge.push({
                 path: `${path}.${key}`,
                 src: src?.hasOwnProperty(key) ? src[key] : undefined,
                 dst: dst[key],
-                onNotEqual,
+                onNotEqual: [ ...(onNotEqual ?? []), () => { objectChanges.pending = false; } ],
                 res: res[key]
             });
         });
@@ -537,12 +539,14 @@
             while (toMerge.length) {
                 const tuple = toMerge.pop();
                 if (tuple.commit) {
-                    Object.assign(tuple.commit, { ...(Array.isArray(tuple.dst) ? [] : tuple.src), ...tuple.dst });
-                    Object.freeze(tuple.commit);
+                    if (tuple.commit !== tuple.dst) {
+                        Object.assign(tuple.commit, { ...(Array.isArray(tuple.dst) ? [] : tuple.src), ...tuple.dst });
+                        Object.freeze(tuple.commit);
+                    }
                 } else if (Array.isArray(tuple.dst)) {
                     changeIndex.push(buildArrayChanges(tuple.path, tuple.src, tuple.dst, tuple.res, toMerge, stateForeachScopes, tuple.onNotEqual));
-                } else if (tuple.dst instanceof Object) {
-                    buildObjectChanges(tuple.path, tuple.src, tuple.dst, tuple.res, toMerge, tuple.onNotEqual);
+                } else if (tuple.dst instanceof Object && !(tuple.dst instanceof Function)) {
+                    buildObjectChanges(tuple.path, tuple.src, tuple.dst, tuple.res, toMerge, changeIndex, tuple.onNotEqual);
                 } else {
                     if (tuple.dst !== tuple.src) {
                         changeIndex.push(tuple);
@@ -574,7 +578,7 @@
             },
             update: function(newState) {
 
-                const changes = mergeChanges(this._current, structuredClone(newState), this);
+                const changes = mergeChanges(this._current, newState, this);
                 this.apply(changes);
 
                 rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
