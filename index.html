@@ -39,6 +39,8 @@
                 onButtonClick: { 'click': buttonClicked }
             });
 
+            let contract = subState.contract();
+
             function buttonClicked() {
                 subState.update({
                     someText: `Lorem ipsum dolor sit amet ${++number}`,

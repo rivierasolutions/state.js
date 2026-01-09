@@ -524,6 +524,78 @@
         }
         return changeIndex.filter(ch => !ch.pending);
     }
+
+    function serializeContractIface(ifaceName, ifaceRoot, allIfaces, ifaceNameSeq) {
+        let contractStr = `interface ${ifaceName} { `;
+        const serializeStack = Object.keys(ifaceRoot).map(k => ({ name: k, value: ifaceRoot[k] }));
+        while (serializeStack.length) {
+            const next = serializeStack.pop();
+            if (next.commit) {
+                contractStr += next.commit;
+                continue;
+            }
+            const props = Object.keys(next.value).filter(p => p !== '$attr' && p !== '$arrayContract');
+            if (props.length) {
+                contractStr += `${next.name}: { `;
+                serializeStack.push({ commit: '}; ' });
+                props.forEach(p => serializeStack.push({ name: p, value: ifaceRoot[p] }));
+            } else if (next.value.$attr?.find(a => a === 'state-listen')) {
+                contractStr += `${next.name}: StateJs.StateListen; `;
+            } else if (next.value.$arrayContract) {
+                const acName = `StateJs.StateForeachContract${++(ifaceNameSeq.next)}`;
+                allIfaces.push({ name: acName, root: next.value.$arrayContract });
+                contractStr += `${next.name}: StateForeach<${acName}>; `;
+            } else if (next.value.$attr.length) {
+                contractStr += `${next.name}: any; `;
+            }
+        }
+        contractStr += '} ';
+        return contractStr;
+    }
+
+    function buildContract(state) {
+        const contractRoot = {};
+        const foreachItemQueue = [];
+        state._bindings.keys().forEach(b => {
+            const def = buildJSONPath(contractRoot, b);
+            def.$attr = [ ...(def.$attr ?? []), ...state._bindings.get(b).values().filter(a => a !== 'state-foreach') ];
+            state._bindings.get(b).keys()
+                .filter(a => state._bindings.get(b).get(a) === 'state-foreach')
+                .forEach(el => {
+                    const id = el.getAttribute('id');
+                    if (!def.$arrayContract) {
+                        def.$arrayContract = {};
+                    }
+                    foreachItemQueue.push({ id: el.getAttribute('id'), foreachStateRoot: el, contract: def.$arrayContract })
+                });
+        });
+        while (foreachItemQueue.length) {
+            const next = foreachItemQueue.shift();
+
+            const iBindings = state._stateForeachItemBindings.get(next.id);
+            iBindings.keys().forEach(ib => {
+                const idef = buildJSONPath(next.contract, ib);
+                idef.$attr = [ ...(idef.$attr ?? []), ...iBindings.get(ib).values().filter(a => a !== 'state-foreach') ];
+                iBindings.get(ib).keys()
+                    .filter(ia => iBindings.get(ib).get(ia) === 'state-foreach')
+                    .map(ipath => ipath.reduce((el, child) => el.children[child], next.foreachStateRoot.children[0]).getAttribute('id'))
+                    .forEach(iid => {
+                        if (!idef.$arrayContract) {
+                            idef.$arrayContract = {};
+                        }
+                        foreachItemQueue.push({ id: iid, contract: idef.$arrayContract })
+                    });
+            });
+        }
+        let stateStr = '';
+        const interfacesQueue = [ { name: 'ViewState', root: contractRoot } ];
+        const ifaceNameSeq = { next: 0 };
+        while (interfacesQueue.length) {
+            const next = interfacesQueue.shift();
+            stateStr += serializeContractIface(next.name, next.root, interfacesQueue, ifaceNameSeq);
+        }
+        return stateStr;
+    }
     
     function load(rootElement) {
         rootElement.state = {
@@ -567,6 +639,9 @@
             subState(element) {
                 return load(element);
             },
+            contract(namespace = 'Generated') {
+                return `declare namespace StateJs.${namespace} { ${this._contract} }`;
+            }
         };
 
         rootElement.state._current = {};
@@ -578,6 +653,8 @@
         if (!(rootElement == document && rootElement.documentElement.hasAttribute('state-ignore'))) {
             domVisitor(rootElement, rootElement.state._current, (ctx) => visitAndBuild(ctx,rootElement.state));
             rootElement.state.apply();
+            
+            rootElement.state._contract = buildContract(rootElement.state);
         }
         rootElement.dispatchEvent(new CustomEvent(`StateLoaded`));
         return rootElement.state;

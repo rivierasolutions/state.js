@@ -7,10 +7,7 @@ declare namespace StateJs {
     interface StateListen {
         [eventName: string]: (event: Event) => void;
     }
-    type StateForeach<T> = Array<T & { $index: number }>;
-    type StateIf = any;
-    type StateContent = any;
-    type StateAttr = any;
+    type StateForeach<T> = Array<T>;
 
     interface StateInstance<T> {
         current(): Readonly<T>;
