@@ -7,7 +7,6 @@ declare namespace StateJs {
     export interface StateListen {
         [eventName: string]: (event: Event) => void;
     }
-    export type StateForeach<T> = Array<T>;
 
     export interface StateInstance<T> {
         current(): Readonly<T>;

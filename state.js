@@ -544,7 +544,7 @@
             } else if (next.value.$arrayContract) {
                 const acName = `StateForeachContract${++(ifaceNameSeq.next)}`;
                 allIfaces.push({ name: acName, root: next.value.$arrayContract });
-                contractStr += `${next.name}: Core.StateForeach<${acName}>; `;
+                contractStr += `${next.name}: Array<${acName}>; `;
             } else if (next.value.$attr.length) {
                 contractStr += `${next.name}: any; `;
             }
