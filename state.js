@@ -210,8 +210,13 @@
         }
     }
 
-    function bindToStateListenAttr(element, stateValue) {
-        Object.keys(stateValue ?? {}).forEach(k => element.addEventListener(k, stateValue[k]));
+    function bindToStateListenAttr(element, previousStateValue, stateValue) {
+        Object.keys(stateValue ?? {}).forEach(k => {
+            if (previousStateValue && previousStateValue[k]) {
+                element.removeEventListener(previousStateValue[k]);
+            }
+            element.addEventListener(k, stateValue[k]);
+        });
     }
 
     function visitAndBuild(visitContext, state) {
@@ -447,7 +452,7 @@
             }
         }
         else if (stateType === 'state-listen') {
-            bindToStateListenAttr(element, stateValue);
+            bindToStateListenAttr(element, src, dst ?? stateValue);
         }
     }
 
