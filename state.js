@@ -526,7 +526,7 @@
     }
 
     function serializeContractIface(ifaceName, ifaceRoot, allIfaces, ifaceNameSeq) {
-        let contractStr = `interface ${ifaceName} { `;
+        let contractStr = `export interface ${ifaceName} { `;
         const serializeStack = Object.keys(ifaceRoot).map(k => ({ name: k, value: ifaceRoot[k] }));
         while (serializeStack.length) {
             const next = serializeStack.pop();
@@ -540,11 +540,11 @@
                 serializeStack.push({ commit: '}; ' });
                 props.forEach(p => serializeStack.push({ name: p, value: ifaceRoot[p] }));
             } else if (next.value.$attr?.find(a => a === 'state-listen')) {
-                contractStr += `${next.name}: StateJs.StateListen; `;
+                contractStr += `${next.name}: Core.StateListen; `;
             } else if (next.value.$arrayContract) {
-                const acName = `StateJs.StateForeachContract${++(ifaceNameSeq.next)}`;
+                const acName = `StateForeachContract${++(ifaceNameSeq.next)}`;
                 allIfaces.push({ name: acName, root: next.value.$arrayContract });
-                contractStr += `${next.name}: StateForeach<${acName}>; `;
+                contractStr += `${next.name}: Core.StateForeach<${acName}>; `;
             } else if (next.value.$attr.length) {
                 contractStr += `${next.name}: any; `;
             }
@@ -640,7 +640,9 @@
                 return load(element);
             },
             contract(namespace = 'Generated') {
-                return `declare namespace StateJs.${namespace} { ${this._contract} }`;
+                return `declare namespace StateJs.${namespace} { import Core = StateJs; ${this._contract} }`
+                    + ' export interface Document { state: Core.StateInstance<ViewState>; }'
+                    + ' export interface DocumentEventMap { "StateLoaded": Event; "StateUpdated": Event; }'
             }
         };
 
