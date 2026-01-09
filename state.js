@@ -26,45 +26,6 @@
         return parent[leafp];
     }
 
-    function buildFrozenJSONPath(state, path, leaf) {
-        state._current = { ...state._current };
-        const thawed = [ state._current ];
-        let split = path.split('.');
-        if (split[0] === '$' || split[0] === '@') {
-            split = split.slice(1);
-        }
-        let leafp = split[split.length-1];
-        let parent = split.slice(0, split.length-1).reduce((obj, p) => {
-            const match = /^(.*)\[([0-9]+)\]$/.exec(p);
-            if (match) {
-                if (!obj.hasOwnProperty(match[1])) {
-                    obj[match[1]] = [];
-                } else {
-                    obj[match[1]] = [...(obj[match[1]])];
-                }
-                const index = parseInt(match[2]);
-                if (obj[match[1]].at(index)) {
-                    obj[match[1]][index] = { ...obj[match[1]][index] };
-                    thawed.push(obj[match[1]][index]);
-                }
-                return obj[match[1]].at(index);
-            } else {
-                if (!obj.hasOwnProperty(p)) {
-                    obj[p] = {};
-                } else {
-                    obj[p] = {...obj[p]};
-                    thawed.push(obj[p]);
-                }
-                return obj[p];
-            }
-        }, state._current);
-        if (!parent.hasOwnProperty(leafp)) {
-            parent[leafp] = leaf ?? {};
-        }
-        thawed.forEach(o => Object.freeze(thawed));
-        return parent[leafp];
-    }
-
     function getJSONPath(root, path) {
         let split = path.split('.');
         if (split[0] === '$' || split[0] === '@') {
