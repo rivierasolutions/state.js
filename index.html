@@ -9,7 +9,7 @@
         <state state-content="@.showMVC2"></state> <br>
         <state state-if-not="@.showMVC2" state-content="@.someText" state-attr-class="@.buttonClass">Lorem ipsum dolor sit amet</state> <br>
         <input type="text" state-attr-value="@.someText" /> <br>
-        <ul>
+        <ul state-if="@.showList">
             <li state-foreach="@.stateArray">
                 <state state-content="@.$index"></state>: <state state-content="@.text"></state> <input type="text" state-attr-value="@.text" /> <br>
                 <ul>
@@ -22,7 +22,11 @@
             </li>
         </ul>
         <br>
-        <button state-attr-class="@.buttonClass" state-listen="@.onButtonClick">Click me</button>
+        <button state-attr-class="@.buttonClass" state-listen="@.onButtonClick">Click me</button> <br>
+        <button state-listen="@.onToggleList">
+            <state state-if="@.showList">Hide list</state>
+            <state state-if-not="@.showList">Show list</state>
+        </button>
     </body>
     <script lang="javascript" src="state.js"></script>
     <script lang="javascript">
@@ -36,7 +40,9 @@
                     { text: 'aaa', numberArray: [{ number: 111 }], onRemove: { 'click': removeItem } },
                     { text: 'bbb', numberArray: [{ number: 222, numberClass: 'red' }], onRemove: { 'click': removeItem } }
                 ],
-                onButtonClick: { 'click': buttonClicked }
+                showList: true,
+                onButtonClick: { 'click': buttonClicked },
+                onToggleList: { 'click': onToggleList }
             });
 
             let contract = subState.contract();
@@ -61,6 +67,10 @@
                         onRemove: { 'click': removeItem }
                     }])
                 });
+            }
+
+            function onToggleList() {
+                subState.update({ showList: !subState.current().showList });
             }
 
             function removeItem(event) {
