@@ -1,4 +1,4 @@
-<html lang="en" state-ignore>
+<html lang="en">
     <head>
         <style>.red { color: red; }</style>
     </head>
@@ -30,7 +30,7 @@
 
             let number = 0;
 
-            let subState = document.state.subState(document.body);
+            let subState = document.state;
             subState.update({ 
                 stateArray: [ 
                     { text: 'aaa', numberArray: [{ number: 111 }], onRemove: { 'click': removeItem } },

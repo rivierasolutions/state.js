@@ -1,0 +1,16 @@
+{
+  "name": "state-js-helper",
+  "publisher": "Piotr Wójcik",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "*"
+  ],
+  "dependencies": {
+    "jsdom": "^26.1.0",
+    "prettier": "^3.7.4"
+  }
+}
