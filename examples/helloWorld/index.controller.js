@@ -1,6 +1,7 @@
 document.addEventListener('StateLoaded', () => {
     document.state.update({
         headerMessage: 'Hello World',
+        subHeaderMessage: 'from state.js',
         onToggleSubheader: { 'click': toggleSubheader }
     });
 

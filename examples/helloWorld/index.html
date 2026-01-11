@@ -5,7 +5,7 @@
     </head>
     <body>
         <h1 state-content="@.headerMessage">Hello</h1>
-        <h2 state-if="@.showSubheader">from state.js</h2>
+        <h2 state-if="@.showSubheader" state-content="@.subHeaderMessage"></h2>
         
         <button state-listen="@.onToggleSubheader">
             <state state-if="@.showSubheader">Hide subheader</state>
