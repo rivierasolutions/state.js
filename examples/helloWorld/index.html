@@ -1,5 +1,8 @@
 <html>
-    <head></head>
+    <head>
+        <script src="state.js" defer></script>
+        <script src="index.controller.js" defer></script>
+    </head>
     <body>
         <h1 state-content="@.headerMessage">Hello</h1>
         <h2 state-if="@.showSubheader">from state.js</h2>
@@ -9,17 +12,4 @@
             <state state-if-not="@.showSubheader">Show subheader</state>
         </button>
     </body>
-    <script lang="javascript" src="state.js"></script>
-    <script lang="javascript">
-        document.addEventListener('StateLoaded', () => {
-            document.state.update({
-                headerMessage: 'Hello World',
-                onToggleSubheader: { 'click': toggleSubheader }
-            });
-
-            function toggleSubheader() {
-               document.state.update({ showSubheader: !document.state.current().showSubheader }); 
-            }
-        });
-    </script>
 </html>
