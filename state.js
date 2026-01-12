@@ -222,14 +222,19 @@
 
     function loadView(element, templatePath) {
         const local = document.getElementById(templatePath);
-        if (local && local.tagName === 'TEMPLATE') {
-            element.innerHTML = local.innerHTML;
-            state = document.state.create(element);
-            element.dispatchEvent(new CustomEvent("StateComposed", {
-                bubbles: true,
-                detail: { view: templatePath, state }
-            }));
-        }
+        (local && local.tagName === 'TEMPLATE'
+            ? Promise.resolve(local.innerHTML)
+            : fetch(templatePath).then(res => res.ok ? res.text() : ''))
+        .then(html => {
+            if (html) {
+                element.innerHTML = html;
+                state = document.state.create(element);
+                element.dispatchEvent(new CustomEvent("StateComposed", {
+                    bubbles: true,
+                    detail: { view: templatePath, state }
+                }));
+            }
+        });
     }
 
     function visitAndBuild(visitContext, state) {

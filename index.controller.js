@@ -54,6 +54,9 @@ document.addEventListener('StateLoaded', () => {
 
     class MyComponent extends HTMLElement {
         connectedCallback() {
+            this.addEventListener('StateLoaded', () => this.stateLoaded());
+        }
+        stateLoaded() {
             this.state.update({ componentContent: 'Filled in by the component state!' });
             setInterval(() => this.state.update({ contentClass: this.state.current().contentClass ? null : 'red' }), 500);
         }
