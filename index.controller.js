@@ -51,4 +51,12 @@ document.addEventListener('StateLoaded', () => {
         buttonClass: subState.current().showMVC2 ? 'red' : '',
         onButtonClick: { 'click': subState.current().showMVC2 ? buttonClicked : buttonClicked2 }
     }), 2000);
+
+    class MyComponent extends HTMLElement {
+        connectedCallback() {
+            this.state.update({ componentContent: 'Filled in by the component state!' });
+            setInterval(() => this.state.update({ contentClass: this.state.current().contentClass ? null : 'red' }), 500);
+        }
+    }
+    customElements.define('app-my-component', MyComponent);
 });

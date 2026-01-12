@@ -1,6 +1,7 @@
 <html lang="en">
     <head>
         <style>.red { color: red; }</style>
+        <state-compose tag="app-my-component" src="my-component"></state-compose>
     </head>
     <body>
         Hello World! <br>
@@ -27,6 +28,14 @@
             <state state-if="@.showList">Hide list</state>
             <state state-if-not="@.showList">Show list</state>
         </button>
+        <br>
+        <br>
+        <app-my-component></app-my-component>
+
+        <template id="my-component" state-ignore>
+            Hello component!<br>
+            <state state-content="@.componentContent" state-attr-class="@.contentClass"></state>
+        </template>
     </body>
     <script lang="javascript" src="state.js"></script>
     <script lang="javascript" src="index.controller.js"></script>

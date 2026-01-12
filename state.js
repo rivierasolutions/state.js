@@ -88,7 +88,7 @@
         return placeholder;
     }
 
-    function domVisitor(rootElement, rootScope, visit) {
+    function domVisitor(rootElement, rootScope, composeTags, visit) {
 
         const walker = document.createTreeWalker(
             rootElement,
@@ -102,6 +102,8 @@
                     || node.hasAttribute('state-foreach')
                     || node.hasAttribute('state-content')
                     || node.hasAttribute('state-listen')
+                    || node.hasAttribute('state-compose')
+                    || composeTags.has(node.tagName)
                     || Array.from(node.attributes).find(a => a.name.startsWith('state-attr-'))
                 )
                 ? NodeFilter.FILTER_ACCEPT
@@ -219,6 +221,18 @@
         });
     }
 
+    function loadView(element, templatePath) {
+        const local = document.getElementById(templatePath);
+        if (local && local.tagName === 'TEMPLATE') {
+            element.innerHTML = local.innerHTML;
+            state = document.state.create(element);
+            element.dispatchEvent(new CustomEvent("StateComposed", {
+                bubbles: true,
+                detail: { view: templatePath, state }
+            }));
+        }
+    }
+
     function visitAndBuild(visitContext, state) {
         const node = visitContext.element;
         let scope = visitContext.scope;
@@ -318,7 +332,13 @@
                 }
                 registerBinding(state, jsonPath.replace('@', absPath), 'state-listen', node);
             } else {
-                registerStateForeachBinding(state, jsonPath, 'state-listen', node, scopeRootElement)
+                registerStateForeachBinding(state, jsonPath, 'state-listen', node, scopeRootElement);
+            }
+        }
+        if (state._composeTags.has(node.tagName)) {
+            const templatePath = state._composeTags.get(node.tagName);
+            if (!isStateForeachItemScope) {
+                loadView(node, templatePath);
             }
         }
         return result;
@@ -651,7 +671,7 @@
                     }
                 });
             },
-            subState(element) {
+            create(element) {
                 return load(element);
             },
             contract(namespace = 'Generated') {
@@ -671,9 +691,17 @@
         rootElement.state._bindings = new Map();
         rootElement.state._stateForeachItemBindings = new Map();
         rootElement.state._stateForeachScopes = new Map();
+        rootElement.state._composeTags = new Map();
 
+        rootElement.querySelectorAll("state-compose").forEach(compose => {
+            const tag = compose.getAttribute('tag');
+            const src = compose.getAttribute('src');
+            if (tag && src) {
+                rootElement.state._composeTags.set(tag.toUpperCase(), src);
+            }
+        });
         if (!(rootElement == document && rootElement.documentElement.hasAttribute('state-ignore'))) {
-            domVisitor(rootElement, rootElement.state._current, (ctx) => visitAndBuild(ctx,rootElement.state));
+            domVisitor(rootElement, rootElement.state._current, rootElement.state._composeTags, (ctx) => visitAndBuild(ctx,rootElement.state));
             rootElement.state.apply();
             
             rootElement.state._contract = buildContract(rootElement.state);
