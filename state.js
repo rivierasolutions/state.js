@@ -102,7 +102,6 @@
                     || node.hasAttribute('state-foreach')
                     || node.hasAttribute('state-content')
                     || node.hasAttribute('state-listen')
-                    || node.hasAttribute('state-compose')
                     || composeTags.has(node.tagName)
                     || Array.from(node.attributes).find(a => a.name.startsWith('state-attr-'))
                 )
