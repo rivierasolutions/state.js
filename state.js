@@ -241,7 +241,10 @@
         });
     }
 
-    function loadView(element, templatePath) {
+    function loadView(state, element, templatePath) {
+        if (state._depth >= document.state._maxDepth) {
+            throw new Error(`Cannot load view ${templatePath} for ${element.tagName}. Maximum state nesting depth exceeded.`);
+        }
         const local = document.getElementById(templatePath);
         (local && local.tagName === 'TEMPLATE'
             ? Promise.resolve(local.innerHTML)
@@ -249,10 +252,11 @@
         .then(html => {
             if (html) {
                 element.innerHTML = html;
-                state = document.state.create(element);
+                newState = document.state.create(element);
+                newState._depth = state._depth + 1;
                 element.dispatchEvent(new CustomEvent("StateComposed", {
                     bubbles: true,
-                    detail: { view: templatePath, state }
+                    detail: { view: templatePath, state: newState }
                 }));
             }
         });
@@ -363,7 +367,7 @@
         if (state._composeTags.has(node.tagName)) {
             const templatePath = state._composeTags.get(node.tagName);
             if (!isStateForeachItemScope) {
-                loadView(node, templatePath);
+                loadView(state, node, templatePath);
             } else {
                 registerStateForeachComposeTag(state, node.tagName, node, scopeRootElement);
             }
@@ -433,7 +437,7 @@
 
     function loadForeachListItemView(state, stateForeachItemRoot, DOMPath, tagName) {
         const element = DOMPath.reduce((el,child) => el.children[child], stateForeachItemRoot)
-        loadView(element, state._composeTags.get(tagName));
+        loadView(state, element, state._composeTags.get(tagName));
     }
 
     function applyStateChange(state, elementMap, absPath, elementOrPath, src, dst) {
@@ -737,6 +741,10 @@
         rootElement.state._stateForeachItemBindings = new Map();
         rootElement.state._stateForeachComposeTags = new Map();
         rootElement.state._stateForeachScopes = new Map();
+        rootElement.state._depth = 0;
+        if (rootElement === document) {
+            rootElement.state._maxDepth = 1;
+        }
 
         rootElement.querySelectorAll("state-compose").forEach(compose => {
             const tag = compose.getAttribute('tag');
