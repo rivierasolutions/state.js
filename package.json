@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "esbuild": "^0.27.2"
+  },
+  "scripts": {
+    "build": "esbuild src/state.js --bundle --minify --sourcemap --outfile=dist/state.min.js",
+    "watch": "esbuild src/state.js --bundle --outfile=dist/state.min.js --watch"
+  }
+}
