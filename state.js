@@ -162,6 +162,27 @@
         itemBindings.get(relPath).set(path, type);
     }
 
+    function registerStateForeachComposeTag(state, composeTag, element, statForeachRootScope) {
+        const id = statForeachRootScope.parentElement.getAttribute('id');
+        if (!state._stateForeachComposeTags.has(id)) {
+            state._stateForeachComposeTags.set(id, new Map());
+        }
+        itemBindings = state._stateForeachComposeTags.get(id);
+        if (!itemBindings.has(composeTag)) {
+            itemBindings.set(composeTag, new Set());
+        }
+        const path = [];
+        while (element && element !== statForeachRootScope) {
+            if (!element.parentElement) {
+                break;
+            }
+            const index = ((el) => { let index=0; while((el = el.previousElementSibling)) { ++index; } return index; })(element);
+            path.unshift(index);
+            element = element.parentElement;
+        }
+        itemBindings.get(composeTag).add(path);
+    }
+
     function registerStateForeachScope(state, absPath) {
         if (!state._stateForeachScopes.has(absPath)) {
             state._stateForeachScopes.set(absPath, {});
@@ -343,6 +364,8 @@
             const templatePath = state._composeTags.get(node.tagName);
             if (!isStateForeachItemScope) {
                 loadView(node, templatePath);
+            } else {
+                registerStateForeachComposeTag(state, node.tagName, node, scopeRootElement);
             }
         }
         return result;
@@ -366,17 +389,29 @@
 
     function foreachStateItemFactory(state, absPath, statForeachElement, index) {
         const domItem = statForeachElement.firstElementChild.cloneNode(true);
-        domItem.setAttribute("state-foreach-id", statForeachElement.getAttribute("id"));
+        const stateForeachId = statForeachElement.getAttribute("id");
+        domItem.setAttribute("state-foreach-id", stateForeachId);
         domItem.setAttribute('state-scope', `${absPath}[${index}]`);
 
-        const stateTemplate = state._stateForeachItemBindings.get(statForeachElement.getAttribute("id"));
-        Array.from(stateTemplate.keys()).forEach(itemPath => {
-            const tempaltePathMap = stateTemplate.get(itemPath);
-            Array.from(tempaltePathMap.keys()).forEach(templatePath => {
-                registerBinding(state, itemPath.replace('@', `${absPath}[${index}]`), tempaltePathMap.get(templatePath), { DOMPath: templatePath, stateForeachItemRoot: domItem });
-                bindFoeachListItemState(state, domItem, itemPath.replace('@', `${absPath}[${index}]`), templatePath, tempaltePathMap.get(templatePath));
+        const stateTemplate = state._stateForeachItemBindings.get(stateForeachId);
+        if (stateTemplate) {
+            Array.from(stateTemplate.keys()).forEach(itemPath => {
+                const tempaltePathMap = stateTemplate.get(itemPath);
+                Array.from(tempaltePathMap.keys()).forEach(DOMPath => {
+                    registerBinding(state, itemPath.replace('@', `${absPath}[${index}]`), tempaltePathMap.get(DOMPath), { DOMPath: DOMPath, stateForeachItemRoot: domItem });
+                    bindFoeachListItemState(state, domItem, itemPath.replace('@', `${absPath}[${index}]`), DOMPath, tempaltePathMap.get(DOMPath));
+                });
             });
-        });
+        }
+        const composeTags = state._stateForeachComposeTags.get(stateForeachId);
+        if (composeTags) {
+            Array.from(composeTags.keys()).forEach(composeTag => {
+                const templatePathMap = composeTags.get(composeTag);
+                Array.from(templatePathMap.keys()).forEach(DOMPath => {
+                    loadForeachListItemView(state, domItem, DOMPath, composeTag);
+                });
+            });
+        }
 
         return domItem;
     }
@@ -394,6 +429,11 @@
         else if (stateType === 'state-listen' && !element.hasAttribute("id")) {
             element.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
         }
+    }
+
+    function loadForeachListItemView(state, stateForeachItemRoot, DOMPath, tagName) {
+        const element = DOMPath.reduce((el,child) => el.children[child], stateForeachItemRoot)
+        loadView(element, state._composeTags.get(tagName));
     }
 
     function applyStateChange(state, elementMap, absPath, elementOrPath, src, dst) {
@@ -693,9 +733,10 @@
         rootElement.state._current = {};
         rootElement.state._idSequence = { next: 0 };
         rootElement.state._bindings = new Map();
-        rootElement.state._stateForeachItemBindings = new Map();
-        rootElement.state._stateForeachScopes = new Map();
         rootElement.state._composeTags = new Map();
+        rootElement.state._stateForeachItemBindings = new Map();
+        rootElement.state._stateForeachComposeTags = new Map();
+        rootElement.state._stateForeachScopes = new Map();
 
         rootElement.querySelectorAll("state-compose").forEach(compose => {
             const tag = compose.getAttribute('tag');
