@@ -5,7 +5,7 @@ const jsdom = require('jsdom');
 const prettier = require("prettier");
 
 function activate(context) {
-    const stateJsCodeText = fs.readFileSync(path.join(context.extensionPath, 'resources', 'state.js'), 'utf8');
+    const stateJsCodeText = fs.readFileSync(path.join(context.extensionPath, 'resources', 'state.min.js'), 'utf8');
 
     const watcher = vscode.workspace.onDidSaveTextDocument((document) => {
         if (document.languageId === 'html') {
@@ -18,20 +18,38 @@ function activate(context) {
 
 function deactivate() {}
 
+async function mockFetch(url, projectRoot) {
+    const fileName = url.replace('http://localhost/', ''); 
+    const filePath = path.join(projectRoot, fileName);
+
+    try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        return {
+            ok: true,
+            status: 200,
+            text: async () => content,
+            json: async () => JSON.parse(content)
+        };
+    } catch (e) {
+        return {
+            ok: false,
+            status: 404,
+            statusText: "Not Found"
+        };
+    }
+}
+
 function tryGenerateContract(document, stateJsCode) {
 
     const virtualConsole = new jsdom.VirtualConsole();
-    virtualConsole.on("error", (err) => {
-        console.log("JSDOM Error:", err);
-    });
-    virtualConsole.on("log", (msg) => {
-        console.log("JSDOM Log:", msg);
-    });
+    virtualConsole.sendTo( console);
 
     const dom = new jsdom.JSDOM(document.getText(), {
         runScripts: "dangerously",
-        virtualConsole: virtualConsole
+        url: "http://localhost/",
+        virtualConsole
     });
+    dom.window.fetch = (url) => mockFetch(url, vscode.workspace.workspaceFolders[0].uri.fsPath);
     const html = dom.window.document;
 
 	if (!Array.from(html.querySelectorAll('script')).some(s => s.src.endsWith('state.js') || s.src.endsWith('state.min.js'))

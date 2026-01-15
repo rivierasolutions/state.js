@@ -9,9 +9,10 @@ const stateDTs =
 
     export interface StateInstance<T> {
         current(): Readonly<T>;
-        update(patch: DeepPartial<T>): void;
+        update(patch: DeepPartial<T>|Array<{ jsonPath: string, value: any }>): void;
         scopeOf(el: HTMLElement): any;
-        subState<S>(el: HTMLElement): StateInstance<S>;
+        create<S>(el: HTMLElement): StateInstance<S>;
+        contract(namespace?: string): string;
     }
 }`;
 
@@ -90,12 +91,12 @@ function buildContract(state) {
 function wrapContract(state, namespace) {
     if (!state._contract) {
         return stateDTs + ` declare namespace StateJs.${namespace} { export interface ViewState { } }`
-            + ' export interface Document { state: StateJs.StateInstance<ViewState>; }'
-            + ' export interface DocumentEventMap { "StateLoaded": Event; "StateUpdated": Event; }'
+            + ' interface Document { state: StateJs.StateInstance<ViewState>; }'
+            + ' interface DocumentEventMap { "StateLoaded": Event; "StateUpdated": Event; }'
     }
     return stateDTs + ` declare namespace StateJs.${namespace} { ${state._contract} }`
-        + ' export interface Document { state: StateJs.StateInstance<StateJs.Generated.ViewState>; }'
-        + ' export interface DocumentEventMap { "StateLoaded": Event; "StateUpdated": Event; }'
+        + ' interface Document { state: StateJs.StateInstance<StateJs.Generated.ViewState>; }'
+        + ' interface DocumentEventMap { "StateLoaded": Event; "StateUpdated": Event; }'
 }
 
 export { buildContract, wrapContract };

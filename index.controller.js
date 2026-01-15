@@ -1,8 +1,11 @@
+/// <reference path="./index.html.d.ts" />
+
 document.addEventListener('StateLoaded', () => {
 
     let number = 0;
 
     let subState = document.state;
+
     subState.update({ 
         stateArray: [ 
             { text: 'aaa', numberArray: [{ number: 111 }], onRemove: { 'click': removeItem } },

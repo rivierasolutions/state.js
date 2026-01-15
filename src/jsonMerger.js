@@ -145,7 +145,7 @@ function mergeChangesAsArray(state, changes) {
     thawed.set("$", state._current);
     const changeIndex = new Map();
 
-    changes.forEach(({ path, value }) => path && typeof(path) === 'string' && path.startsWith('$') && setFrozenJSONPath(state, path, value, thawed, changeIndex));
+    changes.forEach(({ jsonPath, value }) => jsonPath && typeof(jsonPath) === 'string' && jsonPath.startsWith('$') && setFrozenJSONPath(state, jsonPath, value, thawed, changeIndex));
 
     Array.from(thawed.values()).forEach(o => Object.freeze(o));
     return changeIndex.values();
