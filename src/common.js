@@ -41,45 +41,6 @@ function getJSONPath(root, path) {
     return res;
 }
 
-function setFrozenJSONPath(state, path, value) {
-    state._current = { ...state._current };
-    const thawed = [ state._current ];
-    let split = path.split('.');
-    if (split[0] === '$' || split[0] === '@') {
-        split = split.slice(1);
-    }
-    const parent = split.slice(0, split.length-1).reduce((obj, p) => {
-        if (!(obj instanceof Object)) { return undefined; }
-        const match = /^(.*)\[([0-9]+)\]$/.exec(p);
-        if (match) {
-            obj[match[1]] = [...(obj[match[1]])];
-            thawed.push(obj[match[1]]);
-            const index = parseInt(match[2]);
-            obj[match[1]][index] = { ...(obj[match[1]][index]) };
-            return obj[match[1]][index];
-        } else {
-            obj[p] = {...obj[p]};
-            thawed.push(obj[p]);
-            return obj[p];
-        }
-    }, state._current);
-    if (parent) {
-        const match = /^(.*)\[([0-9]+)\]$/.exec(split.at(-1));
-        if (match && Array.isArray(parent[match[1]])) {
-            const index = parseInt(match[2]);
-            if (index < parent[match[1]].length) {
-                parent[match[1]][index] = value;
-            }
-        } else if (!match) {
-            parent[split.at(-1)] = value;
-        }
-    }
-    thawed.forEach(o => Object.freeze(o));
-    if (value instanceof Object) {
-        Object.freeze(value);
-    }
-}
-
 function placeholderFactory(attrs) {
     const placeholder = document.createElement('template');
     placeholder.setAttribute('state-placeholder', '');
@@ -100,43 +61,25 @@ function unregisterBinding(state, absPath, elementOrPath) {
 
 function bindToValueAttr(element, absPath, state) {
     if (element.tagName === 'SELECT') {
-        element.addEventListener('change', (event) => {
-            setFrozenJSONPath(state, absPath, event.target.value);
-            state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.value }]);
-        });
+        element.addEventListener('change', (event) => state.update([{ path: absPath, value: event.target.value }]));
     }
     else if (element.getAttribute('contenteditable') === 'true') {
-        element.addEventListener('input', (event) => {
-            setFrozenJSONPath(state, absPath, event.target.textContent);
-            state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.textContent }]);
-        });
+        element.addEventListener('input', (event) => state.update([{ path: absPath, value: event.target.textContent }]));
     }
     else if (element.tagName === 'INPUT' && (element.getAttribute('type') === 'checkbox' || element.getAttribute('type') === 'radio')) {
-        element.addEventListener('change', (event) => {
-            setFrozenJSONPath(state, absPath, event.target.checked);
-            state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.checked }]);
-        });
+        element.addEventListener('change', (event) => state.update([{ path: absPath, value: event.target.checked }]));
     }
     else if (element.tagName === 'INPUT' && element.getAttribute('type') === 'file') {
-        element.addEventListener('change', (event) => {
-            setFrozenJSONPath(state, absPath, event.target.files);
-            state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.files }]);
-        });
+        element.addEventListener('change', (event) => state.update([{ path: absPath, value: event.target.files }]));
     }
     else if ((element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' )) {
-        element.addEventListener('input', (event) => {
-            setFrozenJSONPath(state, absPath, event.target.value);
-            state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.value }]);
-        });
+        element.addEventListener('input', (event) => state.update([{ path: absPath, value: event.target.value }]));
     }
 }
 
 function bindToOpenAttr(element, absPath, state) {
     if (element.tagName === 'DETAILS') {
-        element.addEventListener('toggle', (event) => {
-            setFrozenJSONPath(state, absPath, event.target.open);
-            state.apply([{ path: absPath, src: getJSONPath(state._current, absPath), dst: event.target.open }]);
-        });
+        element.addEventListener('toggle', (event) => state.update([{ path: absPath, value: event.target.open }]));
     }
 }
 

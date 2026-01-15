@@ -25,7 +25,7 @@ import { applyStateChange } from "./stateChangeHandler";
             },
             update: function(newState) {
 
-                const changes = mergeChanges(this._current, newState, this);
+                const changes = mergeChanges(this, newState);
                 this.apply(changes);
 
                 rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
