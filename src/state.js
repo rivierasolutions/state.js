@@ -48,8 +48,8 @@ import { applyStateChange } from "./stateChangeHandler";
             create(element) {
                 return load(element);
             },
-            contract(namespace = 'Generated') {
-                return wrapContract(this, namespace);
+            contract(namespace = 'Generated', className = 'ViewState') {
+                return buildContract(this, namespace, className);
             }
         };
 
@@ -76,7 +76,7 @@ import { applyStateChange } from "./stateChangeHandler";
             buildState(rootElement);
             rootElement.state.apply();
 
-            rootElement.state._contract = buildContract(rootElement.state);
+            rootElement.state._initialBindings = new Map(rootElement.state._bindings);
         }
         rootElement.dispatchEvent(new CustomEvent(`StateLoaded`));
         return rootElement.state;

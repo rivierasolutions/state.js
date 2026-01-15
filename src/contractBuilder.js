@@ -12,7 +12,7 @@ const stateDTs =
         update(patch: DeepPartial<T>|Array<{ jsonPath: string, value: any }>): void;
         scopeOf(el: HTMLElement): any;
         create<S>(el: HTMLElement): StateInstance<S>;
-        contract(namespace?: string): string;
+        contract(namespace?: string, className?: string): string;
     }
 }`;
 
@@ -44,14 +44,15 @@ function serializeContractIface(ifaceName, ifaceRoot, allIfaces, ifaceNameSeq) {
     return contractStr;
 }
 
-function buildContract(state) {
+function buildContract(state, namespace, className) {
     const contractRoot = {};
     const foreachItemQueue = [];
-    state._bindings.keys().forEach(b => {
+    const bindings = state._initialBindings;
+    bindings.keys().forEach(b => {
         const def = buildJSONPath(contractRoot, b);
-        def.$attr = [ ...(def.$attr ?? []), ...state._bindings.get(b).values().filter(a => a !== 'state-foreach') ];
-        state._bindings.get(b).keys()
-            .filter(a => state._bindings.get(b).get(a) === 'state-foreach')
+        def.$attr = [ ...(def.$attr ?? []), ...bindings.get(b).values().filter(a => a !== 'state-foreach') ];
+        bindings.get(b).keys()
+            .filter(a => bindings.get(b).get(a) === 'state-foreach')
             .forEach(el => {
                 const id = el.getAttribute('id');
                 if (!def.$arrayContract) {
@@ -79,24 +80,24 @@ function buildContract(state) {
         });
     }
     let stateStr = '';
-    const interfacesQueue = [ { name: 'ViewState', root: contractRoot } ];
+    const interfacesQueue = [ { name: className, root: contractRoot } ];
     const ifaceNameSeq = { next: 0 };
     while (interfacesQueue.length) {
         const next = interfacesQueue.shift();
         stateStr += serializeContractIface(next.name, next.root, interfacesQueue, ifaceNameSeq);
     }
-    return stateStr;
+    return wrapContract(stateStr, namespace, className);
 }
 
-function wrapContract(state, namespace) {
-    if (!state._contract) {
-        return stateDTs + ` declare namespace StateJs.${namespace} { export interface ViewState { } }`
-            + ' interface Document { state: StateJs.StateInstance<ViewState>; }'
+function wrapContract(contract, namespace, className) {
+    if (!contract) {
+        return stateDTs + ` declare namespace StateJs.${namespace} { export interface ${className} { } }`
+            + ` interface Document { state: StateJs.StateInstance<${className}>; }`
             + ' interface DocumentEventMap { "StateLoaded": Event; "StateUpdated": Event; }'
     }
-    return stateDTs + ` declare namespace StateJs.${namespace} { ${state._contract} }`
-        + ' interface Document { state: StateJs.StateInstance<StateJs.Generated.ViewState>; }'
+    return stateDTs + ` declare namespace StateJs.${namespace} { ${contract} }`
+        + ` interface Document { state: StateJs.StateInstance<StateJs.Generated.${className}>; }`
         + ' interface DocumentEventMap { "StateLoaded": Event; "StateUpdated": Event; }'
 }
 
-export { buildContract, wrapContract };
+export { buildContract };

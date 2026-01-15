@@ -39,6 +39,11 @@ async function mockFetch(url, projectRoot) {
     }
 }
 
+function toPascalCase(src) {
+  return (src.substring(0,1).toUpperCase()+src.substring(1))
+      .replace(/[\s-_]+./g, (match) => match.substring(match.length-1).toUpperCase());
+}
+
 function tryGenerateContract(document, stateJsCode) {
 
     const virtualConsole = new jsdom.VirtualConsole();
@@ -69,8 +74,10 @@ function tryGenerateContract(document, stateJsCode) {
     const readyEvent = new dom.window.Event('DOMContentLoaded');
     html.dispatchEvent(readyEvent);
 
+    const className = toPascalCase(path.parse(document.fileName).name);
+
     Promise.race([stateLoaded, timeout]).then(() => {
-        return prettier.format(html.state.contract(), {
+        return prettier.format(html.state.contract('Generated', className), {
             parser: "typescript",
             tabWidth: 4,
             semi: true,
