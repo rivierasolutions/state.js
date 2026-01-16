@@ -62,11 +62,15 @@ function setFrozenJSONPath(state, path, value, thawed, changeIndex) {
     }
 }
 
+function isObjectOrArray(o) {
+    return o instanceof Object && !(o instanceof Function);
+}
+
 function buildArrayChanges(path, src, dst, res, toMerge, stateForeachScopes, onNotEqual) {
     const stateScope = stateForeachScopes.get(path.replace(/\[[0-9+]\]/g, '[]'));
     const arrayChanges = { path, src, dst, pending: true };
     for(let i=0; i<dst.length; ++i) {
-        if (dst[i] instanceof Object && !(dst[i] instanceof Function)) {
+        if (isObjectOrArray(dst[i])) {
             res[i] = Array.isArray(dst[i]) ? [...(dst[i])] : { ...dst[i] };
         }
         dst[i].$index = i;
@@ -91,10 +95,6 @@ function buildArrayChanges(path, src, dst, res, toMerge, stateForeachScopes, onN
         });
     }
     return arrayChanges;
-}
-
-function isObjectOrArray(o) {
-    return o instanceof Object && !(o instanceof Function);
 }
 
 function buildObjectChanges(path, src, dst, res, toMerge, changeIndex, onNotEqual) {
