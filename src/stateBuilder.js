@@ -101,7 +101,7 @@ function visitAndBuild(visitContext, state) {
 
     if (node.hasAttribute('state-scope')) {
         const jsonPath = node.getAttribute('state-scope');
-        let isStateForeachItemScope = node.parentElement?.tagName === 'TEMPLATE'
+        isStateForeachItemScope = node.parentElement?.tagName === 'TEMPLATE'
             && node.parentElement?.hasAttribute('state-placeholder')
             && node.parentElement?.hasAttribute('state-foreach');
         result = { 
@@ -116,7 +116,6 @@ function visitAndBuild(visitContext, state) {
         scope = result.scope;
         scopeRootElement = result.scopeRootElement;
         absPath = result.absPath;
-        isStateForeachItemScope = result.isStateForeachItemScope;
     }
     if (node.hasAttribute('state-foreach')) {
         const jsonPath = node.getAttribute('state-foreach');
