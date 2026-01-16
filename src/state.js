@@ -48,8 +48,8 @@ import { applyStateChange } from "./stateChangeHandler";
             create(element) {
                 return load(element);
             },
-            contract(namespace = 'Generated', className = 'ViewState') {
-                return buildContract(this, namespace, className);
+            contract(namespace = 'Generated', className = 'ViewState', wrap = true) {
+                return wrap ? wrapContract(buildContract(this, className), namespace, className) : buildContract(this, className);
             }
         };
 

@@ -12,11 +12,11 @@ const stateDTs =
         update(patch: DeepPartial<T>|Array<{ jsonPath: string, value: any }>): void;
         scopeOf(el: HTMLElement): any;
         create<S>(el: HTMLElement): StateInstance<S>;
-        contract(namespace?: string, className?: string): string;
+        contract(namespace?: string, className?: string, wrap?: boolean): string;
     }
 }`;
 
-function serializeContractIface(ifaceName, ifaceRoot, allIfaces, ifaceNameSeq) {
+function serializeContractIface(ifaceName, ifaceRoot, allIfaces, ifaceNameSeq, className) {
     let contractStr = `export interface ${ifaceName} { `;
     const serializeStack = Object.keys(ifaceRoot).map(k => ({ name: k, value: ifaceRoot[k] }));
     while (serializeStack.length) {
@@ -35,7 +35,7 @@ function serializeContractIface(ifaceName, ifaceRoot, allIfaces, ifaceNameSeq) {
         } else if (next.value.$arrayContract) {
             const acName = `StateForeachContract${++(ifaceNameSeq.next)}`;
             allIfaces.push({ name: acName, root: next.value.$arrayContract });
-            contractStr += `${next.name}: Array<${acName}>; `;
+            contractStr += `${next.name}: Array<${className}.${acName}>; `;
         } else if (next.value.$attr.length) {
             contractStr += `${next.name}: any; `;
         }
@@ -44,7 +44,7 @@ function serializeContractIface(ifaceName, ifaceRoot, allIfaces, ifaceNameSeq) {
     return contractStr;
 }
 
-function buildContract(state, namespace, className) {
+function buildContract(state, className) {
     const contractRoot = {};
     const foreachItemQueue = [];
     const bindings = state._initialBindings;
@@ -79,25 +79,26 @@ function buildContract(state, namespace, className) {
                 });
         });
     }
+
     let stateStr = '';
-    const interfacesQueue = [ { name: className, root: contractRoot } ];
+    const interfacesQueue = [];
     const ifaceNameSeq = { next: 0 };
-    while (interfacesQueue.length) {
-        const next = interfacesQueue.shift();
-        stateStr += serializeContractIface(next.name, next.root, interfacesQueue, ifaceNameSeq);
+    stateStr = serializeContractIface(className, contractRoot, interfacesQueue, ifaceNameSeq, className);
+    if (interfacesQueue.length) {
+        stateStr += ` namespace ${className} { `;
+        while (interfacesQueue.length) {
+            const next = interfacesQueue.shift();
+            stateStr += serializeContractIface(next.name, next.root, interfacesQueue, ifaceNameSeq, className);
+        }
+        stateStr += '} ';
     }
-    return wrapContract(stateStr, namespace, className);
+    return stateStr ?? `export interface ${className} { }`;
 }
 
-function wrapContract(contract, namespace, className) {
-    if (!contract) {
-        return stateDTs + ` declare namespace StateJs.${namespace} { export interface ${className} { } }`
-            + ` interface Document { state: StateJs.StateInstance<${className}>; }`
-            + ' interface DocumentEventMap { "StateLoaded": Event; "StateUpdated": Event; }'
-    }
+function wrapContract(contract, namespace, viewStateIfaceName) {
     return stateDTs + ` declare namespace StateJs.${namespace} { ${contract} }`
-        + ` interface Document { state: StateJs.StateInstance<StateJs.Generated.${className}>; }`
+        + ` interface Document { state: StateJs.StateInstance<StateJs.${namespace}.${viewStateIfaceName}>; }`
         + ' interface DocumentEventMap { "StateLoaded": Event; "StateUpdated": Event; }'
 }
 
-export { buildContract };
+export { buildContract, wrapContract };
