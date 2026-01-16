@@ -66,10 +66,11 @@ function buildArrayChanges(path, src, dst, res, toMerge, stateForeachScopes, onN
     const stateScope = stateForeachScopes.get(path.replace(/\[[0-9+]\]/g, '[]'));
     const arrayChanges = { path, src, dst, pending: true };
     for(let i=0; i<dst.length; ++i) {
-        if (dst[i] instanceof Object && Object.isFrozen(dst[i])) {
-            dst[i] = Array.isArray(dst[i]) ? [...(dst[i])] : { ...dst[i] };
+        if (dst[i] instanceof Object && !(dst[i] instanceof Function)) {
+            res[i] = Array.isArray(dst[i]) ? [...(dst[i])] : { ...dst[i] };
         }
         dst[i].$index = i;
+        res[i].$index = i;
     }
     toMerge.push({ commit: res, src, dst });
     if (!Array.isArray(src)) {
@@ -92,13 +93,17 @@ function buildArrayChanges(path, src, dst, res, toMerge, stateForeachScopes, onN
     return arrayChanges;
 }
 
+function isObjectOrArray(o) {
+    return o instanceof Object && !(o instanceof Function);
+}
+
 function buildObjectChanges(path, src, dst, res, toMerge, changeIndex, onNotEqual) {
     toMerge.push({ commit: res, src, dst });
     const objectChanges = { path, src, dst, pending: true };
     changeIndex.push(objectChanges);
     Object.keys(dst).forEach((key) => {
-        if (res[key] instanceof Object && Object.isFrozen(res[key])) {
-            res[key] = Array.isArray(res[key]) ? [...(res[key])] : { ...res[key] };
+        if (isObjectOrArray(dst[key])) {
+            res[key] = Array.isArray(dst[key]) ? [...(dst[key])] : { ...src[key], ...dst[key] };
         }
         toMerge.push({
             path: `${path}.${key}`,
@@ -119,13 +124,10 @@ function mergeChangesAsPartialObject(src, dst, state) {
         while (toMerge.length) {
             const tuple = toMerge.pop();
             if (tuple.commit) {
-                if (tuple.commit !== tuple.dst) {
-                    Object.assign(tuple.commit, { ...(Array.isArray(tuple.dst) ? [] : tuple.src), ...tuple.dst });
-                    Object.freeze(tuple.commit);
-                }
+                (tuple.commit !== tuple.dst) && Object.freeze(tuple.commit);
             } else if (Array.isArray(tuple.dst)) {
                 changeIndex.push(buildArrayChanges(tuple.path, tuple.src, tuple.dst, tuple.res, toMerge, stateForeachScopes, tuple.onNotEqual));
-            } else if (tuple.dst instanceof Object && !(tuple.dst instanceof Function)) {
+            } else if (isObjectOrArray(tuple.dst)) {
                 buildObjectChanges(tuple.path, tuple.src, tuple.dst, tuple.res, toMerge, changeIndex, tuple.onNotEqual);
             } else {
                 if (tuple.dst !== tuple.src) {
