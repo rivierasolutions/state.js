@@ -5,13 +5,22 @@
 
 		const viewState = document.state;
 		const todos = _deserialize(localStorage.getItem('todos')) ?? [];
+		let present = 'all';
 
 		_updateTodos({ 
 			onNewTodoInput: { 'keydown': onNewTodoInput },
 			onToggleAll: { 'click': onToggleAll },
 			onClearCompleted: { 'click': onClearCompleted },
+			presentAll: true,
 			lastToggleAll: false
 		});
+
+		const router = Router({
+			'/active': () => { present = 'active'; _updateTodos(); },
+			'/completed': () => { present = 'completed';  _updateTodos(); },
+			'/': () => { present = 'all';  _updateTodos(); },
+		});
+		router.init();
 
 		function onNewTodoInput(ev) {
 			if (ev.code === 'Enter' && viewState.current().newTodoName) {
@@ -93,10 +102,14 @@
 			localStorage.setItem('todos', _serialize(todos));
 			viewState.update({
 				...otherUpdates,
-				todos,
+				todos: present === 'active' ? todos.filter(t => !t.isCompleted) : (present === 'completed' ? todos.filter(t => t.isCompleted) : todos),
 				exacly1NotCompletedItem: todos.filter(t => !t.isCompleted).length === 1,
 				notCompletedCount: todos.filter(t => !t.isCompleted).length,
 				completedCount: todos.filter(t => t.isCompleted).length,
+				allCount: todos.length,
+				presentAll: present !== 'active' && present !== 'completed',
+				presentActive: present === 'active',
+				presentCompleted: present === 'completed'
 			});
 		}
 
