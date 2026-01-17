@@ -90,9 +90,25 @@ function applyStateChange(state, elementMap, absPath, elementOrPath, src, dst) {
             element.value = stateValue;
         } else if (attrName === 'open') {
             element.open = !!stateValue;
+        } else if (attrName.endsWith('-if')) {
+            if (stateValue) {
+                element.setAttribute(attrName.slice(0,-3), '');
+            } else {
+                element.removeAttribute(attrName.slice(0,-3));
+            }
+        } else if (attrName.endsWith('-if-not')) {
+            if (stateValue) {
+                element.removeAttribute(attrName.slice(0,-7));
+            } else {
+                element.setAttribute(attrName.slice(0,-7), '');
+            }
         } else {
-            element.setAttribute(stateType.replace('state-attr-', ''), stateValue);
+            element.setAttribute(attrName, stateValue);
         }
+    }
+    else if (stateType.startsWith('state-bool-attr-')) {
+        const attrName = stateType.replace('state-bool-attr-', '');
+        
     }
     else if (stateType === 'state-if') {
         if (!stateValue && !element.hasAttribute('state-placeholder')) {
