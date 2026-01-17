@@ -9,6 +9,7 @@
 		_updateTodos({ 
 			onNewTodoInput: { 'keydown': onNewTodoInput },
 			onToggleAll: { 'click': onToggleAll },
+			onClearCompleted: { 'click': onClearCompleted },
 			lastToggleAll: false
 		});
 
@@ -24,6 +25,13 @@
 				item.isCompleted = !viewState.current().lastToggleAll;
 			});
 			_updateTodos({ lastToggleAll: !viewState.current().lastToggleAll });
+		}
+
+		function onClearCompleted(ev) {
+			todos
+				.filter(item => item.isCompleted)
+				.forEach(item => todos.splice(todos.indexOf(item), 1));
+			_updateTodos();
 		}
 
 		function onItemToggle(ev) {
@@ -87,7 +95,8 @@
 				...otherUpdates,
 				todos,
 				exacly1NotCompletedItem: todos.filter(t => !t.isCompleted).length === 1,
-				notCompletedCount: todos.filter(t => !t.isCompleted).length
+				notCompletedCount: todos.filter(t => !t.isCompleted).length,
+				completedCount: todos.filter(t => t.isCompleted).length,
 			});
 		}
 
