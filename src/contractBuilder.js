@@ -29,14 +29,14 @@ function serializeContractIface(ifaceName, ifaceRoot, allIfaces, ifaceNameSeq, c
         if (props.length) {
             contractStr += `${next.name}: { `;
             serializeStack.push({ commit: '}; ' });
-            props.forEach(p => serializeStack.push({ name: p, value: ifaceRoot[p] }));
+            props.forEach(p => serializeStack.push({ name: p, value: next.value[p] }));
         } else if (next.value.$attr?.find(a => a === 'state-listen')) {
             contractStr += `${next.name}: { [eventName: string]: (event: Event) => void; }; `;
         } else if (next.value.$arrayContract) {
             const acName = `StateForeachContract${++(ifaceNameSeq.next)}`;
             allIfaces.push({ name: acName, root: next.value.$arrayContract });
             contractStr += `${next.name}: Array<${className}.${acName}>; `;
-        } else if (next.value.$attr.length) {
+        } else if (next.value.$attr?.length) {
             contractStr += `${next.name}: any; `;
         }
     }
@@ -50,9 +50,9 @@ function buildContract(state, className) {
     const bindings = state._initialBindings;
     bindings.keys().forEach(b => {
         const def = buildJSONPath(contractRoot, b);
-        def.$attr = [ ...(def.$attr ?? []), ...bindings.get(b).values().filter(a => a !== 'state-foreach') ];
+        def.$attr = [ ...(def.$attr ?? []), ...bindings.get(b).values().flatMap(a => a).filter(a => a !== 'state-foreach') ];
         bindings.get(b).keys()
-            .filter(a => bindings.get(b).get(a) === 'state-foreach')
+            .filter(a => bindings.get(b).get(a).indexOf('state-foreach') !== -1)
             .forEach(el => {
                 const id = el.getAttribute('id');
                 if (!def.$arrayContract) {
@@ -67,9 +67,9 @@ function buildContract(state, className) {
         const iBindings = state._stateForeachItemBindings.get(next.id);
         iBindings.keys().forEach(ib => {
             const idef = buildJSONPath(next.contract, ib);
-            idef.$attr = [ ...(idef.$attr ?? []), ...iBindings.get(ib).values().filter(a => a !== 'state-foreach') ];
+            idef.$attr = [ ...(idef.$attr ?? []), ...iBindings.get(ib).values().flatMap(a => a).filter(a => a !== 'state-foreach') ];
             iBindings.get(ib).keys()
-                .filter(ia => iBindings.get(ib).get(ia) === 'state-foreach')
+                .filter(ia => iBindings.get(ib).get(ia).indexOf('state-foreach') !== -1)
                 .map(ipath => ipath.reduce((el, child) => el.children[child], next.foreachStateRoot.children[0]).getAttribute('id'))
                 .forEach(iid => {
                     if (!idef.$arrayContract) {
