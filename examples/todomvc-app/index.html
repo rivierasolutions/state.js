@@ -11,7 +11,12 @@
 		<section class="todoapp">
 			<header class="header">
 				<h1>todos</h1>
-				<input class="new-todo" placeholder="What needs to be done?" autofocus state-attr-value="$.newTodoName" state-listen="$.onNewTodoInput">
+				<input class="new-todo"
+					placeholder="What needs to be done?"
+					autocomplete="off"
+					autofocus
+					state-attr-value="$.newTodoName"
+					state-listen="$.onNewTodoInput">
 			</header>
 			<section class="main" state-if="$.todos.length">
 				<input id="toggle-all" class="toggle-all" type="checkbox" state-attr-checked-if="$.lastToggleAll">
