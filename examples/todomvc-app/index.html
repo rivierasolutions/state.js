@@ -40,13 +40,13 @@
 				</span>
 				<ul class="filters">
 					<li>
-						<a class="selected" href="#/" state-class-selected-if="$.presentAll">All</a>
+						<a class="selected" href="#/" state-class-selected-if="$.present.all">All</a>
 					</li>
 					<li>
-						<a href="#/active" state-class-selected-if="$.presentActive">Active</a>
+						<a href="#/active" state-class-selected-if="$.present.active">Active</a>
 					</li>
 					<li>
-						<a href="#/completed" state-class-selected-if="$.presentCompleted">Completed</a>
+						<a href="#/completed" state-class-selected-if="$.present.completed">Completed</a>
 					</li>
 				</ul>
 				<button class="clear-completed" state-if="$.completedCount" state-listen="$.onClearCompleted">Clear completed</button>

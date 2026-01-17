@@ -11,7 +11,7 @@
 			onNewTodoInput: { 'keydown': onNewTodoInput },
 			onToggleAll: { 'click': onToggleAll },
 			onClearCompleted: { 'click': onClearCompleted },
-			presentAll: true,
+			present: { all: true, active: false, completed: false },
 			lastToggleAll: false
 		});
 
@@ -107,9 +107,11 @@
 				exactly1Active: todos.filter(t => !t.isCompleted).length === 1,
 				completedCount: todos.filter(t => t.isCompleted).length,
 				allCount: todos.length,
-				presentAll: present !== 'active' && present !== 'completed',
-				presentActive: present === 'active',
-				presentCompleted: present === 'completed'
+				present: {
+					all: present !== 'active' && present !== 'completed',
+					active: present === 'active',
+					completed: present === 'completed'
+				}
 			});
 		}
 
