@@ -96,6 +96,16 @@ function bindToOpenAttr(element, absPath, state) {
     }
 }
 
+function setValueOrOpenAttr(element, attrName, stateValue) {
+    if (attrName === 'value') {
+        element.value = stateValue;
+    } else if (attrName === 'checked') {
+        element.checked = !!stateValue;
+    } else if (attrName === 'open') {
+        element.open = !!stateValue;
+    }
+}
+
 function loadView(state, element, templatePath) {
     if (state._depth >= document.state._maxDepth) {
         throw new Error(`Cannot load view ${templatePath} for ${element.tagName}. Maximum state nesting depth exceeded.`);
@@ -117,4 +127,4 @@ function loadView(state, element, templatePath) {
     });
 }
 
-export { buildJSONPath, getJSONPath, registerBinding, unregisterBinding, placeholderFactory, bindToValueAttr, bindToOpenAttr, loadView };
+export { buildJSONPath, getJSONPath, registerBinding, unregisterBinding, placeholderFactory, bindToValueAttr, setValueOrOpenAttr, bindToOpenAttr, loadView };

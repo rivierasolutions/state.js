@@ -1,4 +1,4 @@
-import { loadView, bindToValueAttr, bindToOpenAttr, getJSONPath, unregisterBinding, registerBinding, placeholderFactory } from "./common";
+import { loadView, bindToValueAttr, bindToOpenAttr, setValueOrOpenAttr, getJSONPath, unregisterBinding, registerBinding, placeholderFactory } from "./common";
 
 function bindToStateListenAttr(element, previousStateValue, stateValue) {
     Object.keys(previousStateValue ?? {}).forEach(k => {
@@ -86,28 +86,32 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst) {
         element.textContent = stateValue;
     }
     else if (stateType.startsWith('state-attr-')) {
-        const attrName = stateType.replace('state-attr-', '');
-        if (attrName === 'value') {
-            element.value = stateValue;
-        } else if (attrName === 'checked' || attrName === 'checked-if' || attrName === 'checked-if-not') {
-            element.checked = !!stateValue;
-        } else if (attrName === 'open' || attrName === 'open-if' || attrName === 'open-if-not') {
-            element.open = !!stateValue;
-        } else if (attrName.endsWith('-if')) {
-            if (stateValue) {
-                element.setAttribute(attrName.slice(0,-3), '');
-            } else {
-                element.removeAttribute(attrName.slice(0,-3));
-            }
+        let attrName = stateType.replace('state-attr-', '');
+        let bool = false;
+        let boolNegated = false;
+        if (attrName.endsWith('-if')) {
+            bool = true;
+            attrName = attrName.slice(0,-3);
         } else if (attrName.endsWith('-if-not')) {
+            boolNegated = true;
+            attrName = attrName.slice(0,-7);
+        }
+        if (bool) {
             if (stateValue) {
-                element.removeAttribute(attrName.slice(0,-7));
+                element.setAttribute(attrName, '');
             } else {
-                element.setAttribute(attrName.slice(0,-7), '');
+                element.removeAttribute(attrName);
+            }
+        } else if (boolNegated) {
+            if (stateValue) {
+                element.removeAttribute(attrName);
+            } else {
+                element.setAttribute(attrName, '');
             }
         } else {
             element.setAttribute(attrName, stateValue);
         }
+        setValueOrOpenAttr(element, attrName, boolNegated ? !stateValue : stateValue);
     }
     else if (stateType.startsWith('state-class-')) {
         const className = stateType.replace('state-class-', '');
