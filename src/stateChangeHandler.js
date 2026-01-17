@@ -89,7 +89,9 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst) {
         const attrName = stateType.replace('state-attr-', '');
         if (attrName === 'value') {
             element.value = stateValue;
-        } else if (attrName === 'open') {
+        } else if (attrName === 'checked' || attrName === 'checked-if' || attrName === 'checked-if-not') {
+            element.checked = !!stateValue;
+        } else if (attrName === 'open' || attrName === 'open-if' || attrName === 'open-if-not') {
             element.open = !!stateValue;
         } else if (attrName.endsWith('-if')) {
             if (stateValue) {
