@@ -15,7 +15,7 @@ function domVisitor(rootElement, rootScope, composeTags, visit) {
                 || node.hasAttribute('state-content')
                 || node.hasAttribute('state-listen')
                 || composeTags.has(node.tagName)
-                || Array.from(node.attributes).find(a => a.name.startsWith('state-attr-'))
+                || Array.from(node.attributes).find(a => a.name.startsWith('state-attr-') || a.name.startsWith('state-class-'))
             )
             ? NodeFilter.FILTER_ACCEPT
             : NodeFilter.FILTER_SKIP)
@@ -168,7 +168,13 @@ function visitAndBuild(visitContext, state) {
     Array.from(node.attributes).filter(attr => attr.name.startsWith('state-attr-')).forEach(attr => {
         const jsonPath = attr.value;
         const attrName = attr.name.replace('state-attr-', '');
-        buildJSONPath(scope, jsonPath, node.getAttribute(attrName) ?? '');
+        let initialValue = node.getAttribute(attrName) ?? '';
+        if (attrName.endsWith('-if')) {
+            initialValue = node.hasAttribute(attrName.slice(0, -3));
+        } else if (attrName.endsWith('-if-not')) {
+            initialValue = !node.hasAttribute(attrName.slice(0, -7));
+        }
+        buildJSONPath(scope, jsonPath, initialValue);
         if (!isStateForeachItemScope) {
             registerBinding(state, jsonPath.replace('@', absPath), attr.name, node);
         } else {
@@ -179,6 +185,21 @@ function visitAndBuild(visitContext, state) {
         }
         if (attrName === 'open') {
             bindToOpenAttr(node, jsonPath.replace('@', absPath), state);
+        }
+    });
+    Array.from(node.attributes).filter(attr => attr.name.startsWith('state-class-')).forEach(attr => {
+        const jsonPath = attr.value;
+        let className = attr.name.replace('state-class-', '');
+        if (className.endsWith('-if-not')) {
+            className = className.slice(0, -7);
+        } else if (className.endsWith('-if')) {
+            className = className.slice(0, -3);
+        }
+        buildJSONPath(scope, jsonPath, node.classList.contains(className));
+        if (!isStateForeachItemScope) {
+            registerBinding(state, jsonPath.replace('@', absPath), attr.name, node);
+        } else {
+            registerStateForeachBinding(state, jsonPath, attr.name, node, scopeRootElement)
         }
     });
     if (node.hasAttribute('state-listen')) {

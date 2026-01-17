@@ -51,7 +51,6 @@ document.addEventListener('StateLoaded', () => {
 
     setInterval(() => subState.update({ 
         showMVC2: !subState.current().showMVC2,
-        buttonClass: subState.current().showMVC2 ? 'red' : '',
         onButtonClick: { 'click': subState.current().showMVC2 ? buttonClicked : buttonClicked2 }
     }), 2000);
 

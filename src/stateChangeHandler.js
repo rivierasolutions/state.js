@@ -74,8 +74,7 @@ function foreachStateItemFactory(state, absPath, statForeachElement, index) {
     return domItem;
 }
 
-function applyStateChange(state, elementMap, absPath, elementOrPath, src, dst) {
-    const stateType = elementMap.get(elementOrPath);
+function applyStateChange(state, elementMap, absPath, elementOrPath, stateType, src, dst) {
     const stateValue = getJSONPath(state._current, absPath);
     const element = elementOrPath instanceof HTMLElement
         ? elementOrPath
@@ -106,9 +105,21 @@ function applyStateChange(state, elementMap, absPath, elementOrPath, src, dst) {
             element.setAttribute(attrName, stateValue);
         }
     }
-    else if (stateType.startsWith('state-bool-attr-')) {
-        const attrName = stateType.replace('state-bool-attr-', '');
-        
+    else if (stateType.startsWith('state-class-')) {
+        const className = stateType.replace('state-class-', '');
+        if (className.endsWith('-if-not')) {
+            if (stateValue) {
+                element.classList.remove(className.slice(0, -7));
+            } else {
+                element.classList.add(className.slice(0, -7));
+            }
+        } else {
+            if (stateValue) {
+                element.classList.add(className.endsWith('-if') ? className.slice(0, -3) : className);
+            } else {
+                element.classList.remove(className.endsWith('-if') ? className.slice(0, -3) : className);
+            }
+        }
     }
     else if (stateType === 'state-if') {
         if (!stateValue && !element.hasAttribute('state-placeholder')) {

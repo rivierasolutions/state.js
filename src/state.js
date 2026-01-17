@@ -34,14 +34,14 @@ import { applyStateChange } from "./stateChangeHandler";
                 if (!changes && !Array.isArray(changes)) {
                     this._bindings.keys().forEach(path => {
                         const elementMap = this._bindings.get(path);
-                        elementMap.keys().forEach(element => applyStateChange(this, elementMap, path, element, undefined, undefined));
+                        elementMap.keys().forEach(element => applyStateChange(this, elementMap, path, element, elementMap.get(element), undefined, undefined));
                     });
                     return;
                 }
                 changes.forEach(({ path, src, dst }) => {
                     if (this._bindings.has(path)) {
                         const elementMap = this._bindings.get(path);
-                        elementMap.keys().forEach(element => applyStateChange(this, elementMap, path, element, src, dst));
+                        elementMap.keys().forEach(element => applyStateChange(this, elementMap, path, element, elementMap.get(element), src, dst));
                     }
                 });
             },
