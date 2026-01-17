@@ -9,7 +9,13 @@ function activate(context) {
 
     const watcher = vscode.workspace.onDidSaveTextDocument((document) => {
         if (document.languageId === 'html') {
-            tryGenerateContract(document, stateJsCodeText);
+            tryGenerateContract(document, stateJsCodeText)
+                .then(dTsContract => {
+                    if (dTsContract) {
+                        fs.writeFileSync(`${document.fileName}.d.ts`, dTsContract);
+                        console.log(`StateJs contract written to ${document.fileName}.d.ts`);
+                    }
+                });
         }
     });
 
@@ -44,7 +50,7 @@ function toPascalCase(src) {
       .replace(/[\s-_]+./g, (match) => match.substring(match.length-1).toUpperCase());
 }
 
-function tryGenerateContract(document, stateJsCode) {
+function tryGenerateContract(document, stateJsCode, wrap = true) {
 
     const virtualConsole = new jsdom.VirtualConsole();
     virtualConsole.sendTo( console);
@@ -76,19 +82,16 @@ function tryGenerateContract(document, stateJsCode) {
 
     const className = toPascalCase(path.parse(document.fileName).name);
 
-    Promise.race([stateLoaded, timeout]).then(() => {
-        return prettier.format(html.state.contract('Generated', className), {
-            parser: "typescript",
-            tabWidth: 4,
-            semi: true,
-            singleQuote: false
-        });
-    })
-    .then(dTsContract => {
-        fs.writeFileSync(`${document.fileName}.d.ts`, dTsContract);
-        console.log(`StateJs contract written to ${document.fileName}.d.ts`);
-    })
-    .catch(err => { console.log(err); });
+    return Promise.race([stateLoaded, timeout])
+        .then(() => {
+            return prettier.format(html.state.contract('Generated', className, wrap), {
+                parser: "typescript",
+                tabWidth: 4,
+                semi: true,
+                singleQuote: false
+            });
+        })
+        .catch(err => { console.log(err); });
 }
 
 module.exports = { activate, deactivate };
