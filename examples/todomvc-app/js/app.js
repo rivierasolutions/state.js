@@ -11,7 +11,6 @@
 			onNewTodoInput: { 'keydown': onNewTodoInput },
 			onToggleAll: { 'click': onToggleAll },
 			onClearCompleted: { 'click': onClearCompleted },
-			present: { all: true, active: false, completed: false },
 			lastToggleAll: false
 		});
 
