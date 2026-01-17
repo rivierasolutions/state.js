@@ -32,16 +32,18 @@ import { applyStateChange } from "./stateChangeHandler";
             },
             apply: function(changes) {
                 if (!changes && !Array.isArray(changes)) {
-                    this._bindings.keys().forEach(path => {
-                        const elementMap = this._bindings.get(path);
-                        elementMap.keys().forEach(element => applyStateChange(this, elementMap, path, element, elementMap.get(element), undefined, undefined));
-                    });
+                    Array.from(this._bindings.entries())
+                        .flatMap(([path, elementMap]) => 
+                            Array.from(elementMap.entries())
+                                .flatMap(([element, types]) => types.map(stateType => [path,element,stateType])))
+                        .forEach(([path,element,stateType]) => applyStateChange(this, path, element, stateType, undefined, undefined));
                     return;
                 }
                 changes.forEach(({ path, src, dst }) => {
                     if (this._bindings.has(path)) {
-                        const elementMap = this._bindings.get(path);
-                        elementMap.keys().forEach(element => applyStateChange(this, elementMap, path, element, elementMap.get(element), src, dst));
+                        Array.from(this._bindings.get(path).entries())
+                            .flatMap(([element,types]) => types.map(stateType => [path,element,stateType]))
+                            .forEach(([path,element,stateType]) => applyStateChange(this, path, element, stateType, src, dst));
                     }
                 });
             },

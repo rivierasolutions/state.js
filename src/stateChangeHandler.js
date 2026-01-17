@@ -53,13 +53,15 @@ function foreachStateItemFactory(state, absPath, statForeachElement, index) {
 
     const stateTemplate = state._stateForeachItemBindings.get(stateForeachId);
     if (stateTemplate) {
-        Array.from(stateTemplate.keys()).forEach(itemPath => {
-            const tempaltePathMap = stateTemplate.get(itemPath);
-            Array.from(tempaltePathMap.keys()).forEach(DOMPath => {
-                registerBinding(state, itemPath.replace('@', `${absPath}[${index}]`), tempaltePathMap.get(DOMPath), { DOMPath: DOMPath, stateForeachItemRoot: domItem });
-                bindFoeachListItemState(state, domItem, itemPath.replace('@', `${absPath}[${index}]`), DOMPath, tempaltePathMap.get(DOMPath));
+        Array.from(stateTemplate.entries())
+            .flatMap(([itemPath, templatePathMap]) => 
+                Array.from(templatePathMap.entries())
+                    .flatMap(([DOMPath, types]) => types.map(stateType => [itemPath,DOMPath,stateType]))
+            )
+            .forEach(([itemPath,DOMPath,stateType]) => {
+                registerBinding(state, itemPath.replace('@', `${absPath}[${index}]`), stateType, { DOMPath: DOMPath, stateForeachItemRoot: domItem });
+                bindFoeachListItemState(state, domItem, itemPath.replace('@', `${absPath}[${index}]`), DOMPath, stateType);
             });
-        });
     }
     const composeTags = state._stateForeachComposeTags.get(stateForeachId);
     if (composeTags) {
@@ -74,7 +76,7 @@ function foreachStateItemFactory(state, absPath, statForeachElement, index) {
     return domItem;
 }
 
-function applyStateChange(state, elementMap, absPath, elementOrPath, stateType, src, dst) {
+function applyStateChange(state, absPath, elementOrPath, stateType, src, dst) {
     const stateValue = getJSONPath(state._current, absPath);
     const element = elementOrPath instanceof HTMLElement
         ? elementOrPath
@@ -127,15 +129,15 @@ function applyStateChange(state, elementMap, absPath, elementOrPath, stateType, 
             const placeholder = placeholderFactory({ 'state-if': element.getAttribute('state-if') });
             element.replaceWith(placeholder);
             placeholder.appendChild(element);
-            elementMap.delete(element);
-            elementMap.set(placeholder, 'state-if');
+            registerBinding(state,absPath,'state-if',placeholder);
+            unregisterBinding(state,absPath,element,'state-if');
 
         } else if (stateValue && element.tagName === 'TEMPLATE' && element.hasAttribute('state-placeholder')) {
 
             const content = element.firstElementChild;
             element.replaceWith(content);
-            elementMap.delete(element);
-            elementMap.set(content, 'state-if');
+            registerBinding(state,absPath,'state-if',content);
+            unregisterBinding(state,absPath,element,'state-if');
         }
     }
     else if (stateType === 'state-if-not') {
@@ -144,15 +146,15 @@ function applyStateChange(state, elementMap, absPath, elementOrPath, stateType, 
             const placeholder = placeholderFactory({ 'state-if-not': element.getAttribute('state-if-not') });
             element.replaceWith(placeholder);
             placeholder.appendChild(element);
-            elementMap.delete(element);
-            elementMap.set(placeholder, 'state-if-not');
+            registerBinding(state,absPath,'state-if-not',placeholder);
+            unregisterBinding(state,absPath,element,'state-if-not');
 
         } else if (!stateValue && element.tagName === 'TEMPLATE' && element.hasAttribute('state-placeholder')) {
 
             const content = element.firstElementChild;
             element.replaceWith(content);
-            elementMap.delete(element);
-            elementMap.set(content, 'state-if-not');
+            registerBinding(state,absPath,'state-if-not',content);
+            unregisterBinding(state,absPath,element,'state-if-not');
         }
     }
     else if (stateType === 'state-foreach') {

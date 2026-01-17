@@ -11,7 +11,7 @@
         <state state-if="@.showMVC2"> MVC 2 </state> <br>
         <br>
         <state state-content="@.showMVC2"></state> <br>
-        <state state-if-not="@.showMVC2" state-content="@.someText" state-class-red-if="@.showMVC2">Lorem ipsum dolor sit amet</state> <br>
+        <state state-if-not="@.showMVC2" state-content="@.someText" state-class-red-if-not="@.showMVC2">Lorem ipsum dolor sit amet</state> <br>
         <input type="text" state-attr-value="@.someText" /> <br>
         <ul state-if="@.showList">
             <li state-foreach="@.stateArray">

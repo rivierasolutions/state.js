@@ -42,7 +42,7 @@ function domVisitor(rootElement, rootScope, composeTags, visit) {
     }
 }
 
-function registerStateForeachBinding(state, relPath, type, element, statForeachRootScope) {
+function registerStateForeachBinding(state, relPath, stateType, element, statForeachRootScope) {
     const id = statForeachRootScope.parentElement.getAttribute('id');
     if (!state._stateForeachItemBindings.has(id)) {
         state._stateForeachItemBindings.set(id, new Map());
@@ -60,7 +60,10 @@ function registerStateForeachBinding(state, relPath, type, element, statForeachR
         path.unshift(index);
         element = element.parentElement;
     }
-    itemBindings.get(relPath).set(path, type);
+    if (!itemBindings.get(relPath).has(path)) {
+        itemBindings.get(relPath).set(path, []);
+    }
+    itemBindings.get(relPath).get(path).push(stateType);
 }
 
 function registerStateForeachComposeTag(state, composeTag, element, statForeachRootScope) {

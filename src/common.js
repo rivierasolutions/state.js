@@ -52,11 +52,24 @@ function registerBinding(state, absPath, type, element) {
     if (!state._bindings.has(absPath)) {
         state._bindings.set(absPath, new Map());
     }
-    state._bindings.get(absPath).set(element, type);
+    if (!state._bindings.get(absPath).has(element)) {
+        state._bindings.get(absPath).set(element, []);
+    }
+    state._bindings.get(absPath).get(element).push(type);
 }
 
-function unregisterBinding(state, absPath, elementOrPath) {
-    state._bindings.has(absPath) && state._bindings.get(absPath).delete(elementOrPath);
+function unregisterBinding(state, absPath, elementOrPath, stateType = undefined) {
+    if (stateType) {
+        if (state._bindings.has(absPath) && state._bindings.get(absPath).has(elementOrPath)) {
+            const types = state._bindings.get(absPath).get(elementOrPath);
+            types.splice(types.indexOf(stateType), 1);
+            if (!types.length) {
+                state._bindings.get(absPath).delete(elementOrPath);
+            }
+        }
+    } else {
+        state._bindings.has(absPath) && state._bindings.get(absPath).delete(elementOrPath);
+    }
 }
 
 function bindToValueAttr(element, absPath, state) {
