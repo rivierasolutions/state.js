@@ -103,8 +103,8 @@
 			viewState.update({
 				...otherUpdates,
 				todos: present === 'active' ? todos.filter(t => !t.isCompleted) : (present === 'completed' ? todos.filter(t => t.isCompleted) : todos),
-				exacly1NotCompletedItem: todos.filter(t => !t.isCompleted).length === 1,
-				notCompletedCount: todos.filter(t => !t.isCompleted).length,
+				activeCount: todos.filter(t => !t.isCompleted).length,
+				exactly1Active: todos.filter(t => !t.isCompleted).length === 1,
 				completedCount: todos.filter(t => t.isCompleted).length,
 				allCount: todos.length,
 				presentAll: present !== 'active' && present !== 'completed',

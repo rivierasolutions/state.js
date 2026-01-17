@@ -33,11 +33,11 @@
 				</ul>
 			</section>
 			<footer class="footer" state-if="$.allCount">
-				<span class="todo-count"><strong state-content="$.notCompletedCount">0</strong> 
-					<state state-if="$.exacly1NotCompletedItem">item</state>
-					<state state-if-not="$.exacly1NotCompletedItem">items</state>
-					left</span>
-				<!-- Remove this if you don't implement routing -->
+				<span class="todo-count"><strong state-content="$.activeCount">0</strong> 
+					<state state-if="$.exactly1Active">item</state>
+					<state state-if-not="$.exactly1Active">items</state>
+					left
+				</span>
 				<ul class="filters">
 					<li>
 						<a class="selected" href="#/" state-class-selected-if="$.presentAll">All</a>
