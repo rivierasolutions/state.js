@@ -1,3 +1,5 @@
+/// <reference path="../index.html.d.ts" />
+
 (function (window) {
 	'use strict';
 
