@@ -1,5 +1,5 @@
 
-function buildJSONPath(root, path, leaf) {
+function buildJSONPath(root, path, leaf, forceLeaf = false) {
     let split = path.split('.');
     if (split[0] === '$' || split[0] === '@') {
         split = split.slice(1);
@@ -19,7 +19,7 @@ function buildJSONPath(root, path, leaf) {
             return obj[p];
         }
     }, root);
-    if (!parent.hasOwnProperty(leafp)) {
+    if (!parent.hasOwnProperty(leafp) || forceLeaf) {
         parent[leafp] = leaf ?? {};
     }
     return parent[leafp];

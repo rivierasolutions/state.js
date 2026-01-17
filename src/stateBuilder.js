@@ -122,7 +122,7 @@ function visitAndBuild(visitContext, state) {
     }
     if (node.hasAttribute('state-foreach')) {
         const jsonPath = node.getAttribute('state-foreach');
-        buildJSONPath(scope, jsonPath, []);
+        buildJSONPath(scope, jsonPath, [], true);
 
         let placeholder = node;
         if (!node.hasAttribute('state-placeholder')) {
