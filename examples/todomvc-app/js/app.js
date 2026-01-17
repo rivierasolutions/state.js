@@ -92,7 +92,7 @@
 		}
 
 		function _deserialize(todosStr) {
-			return JSON.parse(todosStr).map(item => _newItem(item.content, item.isCompleted));
+			return todosStr ? JSON.parse(todosStr).map(item => _newItem(item.content, item.isCompleted)) : [];
 		}
 
 		function _serialize(todos) {
