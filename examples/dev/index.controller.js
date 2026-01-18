@@ -24,7 +24,8 @@ document.addEventListener('StateLoaded', () => {
             stateArray: subState.current().stateArray.concat([ { 
                 text: 'added',
                 numberArray: [{ number: 303, numberClass: 'red' }, { number: 404 }],
-                onRemove: { 'click': removeItem }
+                onRemove: { 'click': removeItem },
+                component: { componentContent: `created at: ${new Date().toISOString()}` },
             }])
         });
     }
@@ -35,7 +36,8 @@ document.addEventListener('StateLoaded', () => {
             stateArray: subState.current().stateArray.concat([ { 
                 text: 'added',
                 numberArray: [{ number: 303, numberClass: 'red' }, { number: 404 }],
-                onRemove: { 'click': removeItem }
+                onRemove: { 'click': removeItem },
+                component: { componentContent: `created at: ${new Date().toISOString()}` },
             }])
         });
     }
@@ -51,7 +53,8 @@ document.addEventListener('StateLoaded', () => {
 
     setInterval(() => subState.update({ 
         showMVC2: !subState.current().showMVC2,
-        onButtonClick: { 'click': subState.current().showMVC2 ? buttonClicked : buttonClicked2 }
+        onButtonClick: { 'click': subState.current().showMVC2 ? buttonClicked : buttonClicked2 },
+        myComponentState: { componentContent: new Date().toISOString() }
     }), 2000);
 
     class MyComponent extends HTMLElement {
@@ -59,7 +62,9 @@ document.addEventListener('StateLoaded', () => {
             this.addEventListener('StateLoaded', () => this.stateLoaded());
         }
         stateLoaded() {
-            this.state.update({ componentContent: 'Filled in by the component state!' });
+            if (!this.state.current().componentContent) {
+                this.state.update({ componentContent:  'Filled in by the component state!' });
+            }
             setInterval(() => this.state.update({ contentClass: this.state.current().contentClass ? null : 'red' }), 500);
         }
     }

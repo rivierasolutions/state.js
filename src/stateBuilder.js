@@ -218,10 +218,20 @@ function visitAndBuild(visitContext, state) {
     }
     if (state._composeTags.has(node.tagName)) {
         const templatePath = state._composeTags.get(node.tagName);
+        let passJsonPath = undefined;
+        if (node.hasAttribute('state-pass')) {
+            passJsonPath = node.getAttribute('state-pass');
+        }
         if (!isStateForeachItemScope) {
             loadView(state, node, templatePath);
+            if (passJsonPath) {
+                registerBinding(state, passJsonPath.replace('@', absPath), 'state-pass', node);
+            }
         } else {
             registerStateForeachComposeTag(state, node.tagName, node, scopeRootElement);
+            if (passJsonPath) {
+                registerStateForeachBinding(state, passJsonPath, 'state-pass', node, scopeRootElement);
+            }
         }
     }
     return result;

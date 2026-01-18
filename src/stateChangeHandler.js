@@ -22,6 +22,12 @@ function bindFoeachListItemState(state, stateForeachItemRoot, absPath, DOMPath, 
     else if (stateType === 'state-listen' && !element.hasAttribute("id")) {
         element.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
     }
+    else if (stateType === 'state-pass') {
+        const statePass = getJSONPath(state._current, absPath);
+        if (statePass) {
+            element.addEventListener('StateLoaded', () => element.state.update(statePass), { once: true });
+        }
+    }
 }
 
 function loadForeachListItemView(state, stateForeachItemRoot, DOMPath, tagName) {
@@ -51,6 +57,15 @@ function foreachStateItemFactory(state, absPath, statForeachElement, index) {
     domItem.setAttribute("state-foreach-id", stateForeachId);
     domItem.setAttribute('state-scope', `${absPath}[${index}]`);
 
+    const composeTags = state._stateForeachComposeTags.get(stateForeachId);
+    if (composeTags) {
+        Array.from(composeTags.keys()).forEach(composeTag => {
+            const templatePathMap = composeTags.get(composeTag);
+            Array.from(templatePathMap.keys()).forEach(DOMPath => {
+                loadForeachListItemView(state, domItem, DOMPath, composeTag);
+            });
+        });
+    }
     const stateTemplate = state._stateForeachItemBindings.get(stateForeachId);
     if (stateTemplate) {
         Array.from(stateTemplate.entries())
@@ -62,15 +77,6 @@ function foreachStateItemFactory(state, absPath, statForeachElement, index) {
                 registerBinding(state, itemPath.replace('@', `${absPath}[${index}]`), stateType, { DOMPath: DOMPath, stateForeachItemRoot: domItem });
                 bindFoeachListItemState(state, domItem, itemPath.replace('@', `${absPath}[${index}]`), DOMPath, stateType);
             });
-    }
-    const composeTags = state._stateForeachComposeTags.get(stateForeachId);
-    if (composeTags) {
-        Array.from(composeTags.keys()).forEach(composeTag => {
-            const templatePathMap = composeTags.get(composeTag);
-            Array.from(templatePathMap.keys()).forEach(DOMPath => {
-                loadForeachListItemView(state, domItem, DOMPath, composeTag);
-            });
-        });
     }
 
     return domItem;
@@ -190,6 +196,9 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst) {
     }
     else if (stateType === 'state-listen') {
         bindToStateListenAttr(element, src, dst ?? stateValue);
+    }
+    else if (stateType === 'state-pass' && stateValue) {
+        element.state?.update(stateValue);
     }
 }
 

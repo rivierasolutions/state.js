@@ -22,7 +22,7 @@
                         <input type="number" state-attr-value="@.number" /> <br>
                     </li>
                 </ul>
-                <app-my-component></app-my-component>
+                <app-my-component state-pass="@.component"></app-my-component>
                 <br>
                 <button state-listen="@.onRemove">Remove</button>
             </li>
@@ -35,6 +35,6 @@
         </button>
         <br>
         <br>
-        <app-my-component></app-my-component>
+        <app-my-component state-pass="@.myComponentState"></app-my-component>
     </body>
 </html>
