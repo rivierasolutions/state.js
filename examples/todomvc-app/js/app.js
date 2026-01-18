@@ -9,7 +9,7 @@
 		const todos = _deserialize(localStorage.getItem('todos')) ?? [];
 		let present = 'all';
 
-		_updateTodos({ 
+		_updateViewState({
 			onNewTodoInput: { 'keydown': onNewTodoInput },
 			onToggleAll: { 'click': onToggleAll },
 			onClearCompleted: { 'click': onClearCompleted },
@@ -17,16 +17,16 @@
 		});
 
 		const router = Router({
-			'/active': () => { present = 'active'; _updateTodos(); },
-			'/completed': () => { present = 'completed';  _updateTodos(); },
-			'/': () => { present = 'all';  _updateTodos(); },
+			'/active': () => { present = 'active'; _updateViewState(); },
+			'/completed': () => { present = 'completed';  _updateViewState(); },
+			'/': () => { present = 'all';  _updateViewState(); },
 		});
 		router.init();
 
 		function onNewTodoInput(ev) {
 			if (ev.code === 'Enter' && viewState.current().newTodoName) {
 				todos.push(_newItem(viewState.current().newTodoName));
-				_updateTodos({ newTodoName: '' });
+				_updateViewState({ newTodoName: '' });
 			}
 		}
 
@@ -34,32 +34,32 @@
 			todos.forEach(item => {
 				item.isCompleted = !viewState.current().lastToggleAll;
 			});
-			_updateTodos({ lastToggleAll: !viewState.current().lastToggleAll });
+			_updateViewState({ lastToggleAll: !viewState.current().lastToggleAll });
 		}
 
 		function onClearCompleted(ev) {
 			todos
 				.filter(item => item.isCompleted)
 				.forEach(item => todos.splice(todos.indexOf(item), 1));
-			_updateTodos();
+			_updateViewState();
 		}
 
 		function onItemToggle(ev) {
 			const item = todos[viewState.scopeOf(ev.target).$index];
 			item.isCompleted = !item.isCompleted;
 			item.cssClass = item.isCompleted ? 'completed' : '';
-			_updateTodos();
+			_updateViewState();
 		}
 
 		function onItemRemove(ev) {
 			const index = viewState.scopeOf(ev.target).$index;
 			todos.splice(index, 1);
-			_updateTodos();
+			_updateViewState();
 		}
 
 		function onItemEdit(ev) {
 			todos[viewState.scopeOf(ev.target).$index].isEdited = true; 
-			_updateTodos();
+			_updateViewState();
 		}
 
 		function onItemEditInput(ev) {
@@ -96,10 +96,10 @@
 				todos[index].content = newContent;
 				todos[index].isEdited = false;
 			}
-			_updateTodos();
+			_updateViewState();
 		}
 
-		function _updateTodos(otherUpdates = undefined) {
+		function _updateViewState(otherUpdates = undefined) {
 			localStorage.setItem('todos', _serialize(todos));
 			viewState.update({
 				...otherUpdates,
