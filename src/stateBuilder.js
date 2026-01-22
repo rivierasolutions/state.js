@@ -94,7 +94,7 @@ function registerStateForeachScope(state, absPath) {
     return state._stateForeachScopes.get(absPath);
 }
 
-function visitAndBuild(visitContext, state) {
+function visitAndBuild(visitContext, state, componentUpdates) {
     const node = visitContext.element;
     let scope = visitContext.scope;
     let scopeRootElement = visitContext.scopeRootElement;
@@ -223,7 +223,7 @@ function visitAndBuild(visitContext, state) {
             passJsonPath = node.getAttribute('state-pass');
         }
         if (!isStateForeachItemScope) {
-            loadView(state, node, templatePath);
+            componentUpdates.set(node, loadView(state, node, templatePath, passJsonPath.replace('@', absPath)));
             if (passJsonPath) {
                 registerBinding(state, passJsonPath.replace('@', absPath), 'state-pass', node);
             }
@@ -237,8 +237,8 @@ function visitAndBuild(visitContext, state) {
     return result;
 }
 
-function buildState(rootElement) {
-    domVisitor(rootElement, rootElement.state._current, rootElement.state._composeTags, (ctx) => visitAndBuild(ctx,rootElement.state));
+function buildState(rootElement, componentUpdates) {
+    domVisitor(rootElement, rootElement.state._current, rootElement.state._composeTags, (ctx) => visitAndBuild(ctx,rootElement.state,componentUpdates));
 }
 
 export { buildState };

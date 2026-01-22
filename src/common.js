@@ -106,25 +106,35 @@ function setValueOrOpenAttr(element, attrName, stateValue) {
     }
 }
 
-function loadView(state, element, templatePath) {
+function loadView(state, element, templatePath, absPath) {
     if (state._depth >= document.state._maxDepth) {
         throw new Error(`Cannot load view ${templatePath} for ${element.tagName}. Maximum state nesting depth exceeded.`);
     }
     const local = document.getElementById(templatePath);
-    (local && local.tagName === 'TEMPLATE'
+    return (local && local.tagName === 'TEMPLATE'
         ? Promise.resolve(local.innerHTML)
         : fetch(templatePath).then(res => res.ok ? res.text() : ''))
     .then(html => {
         if (html) {
             element.innerHTML = html;
+            return document.state.create(element);
+        } else {
+            return undefined;
+        }
+    })
+    .then(newState => {
+        if (newState) {
             newState = document.state.create(element);
             newState._depth = state._depth + 1;
             element.dispatchEvent(new CustomEvent("StateComposed", {
                 bubbles: true,
                 detail: { view: templatePath, state: newState }
             }));
+        } else {
+            return undefined;
         }
-    });
+    })
+    .then(() => [element,absPath ?? 'loaded']);
 }
 
 export { buildJSONPath, getJSONPath, registerBinding, unregisterBinding, placeholderFactory, bindToValueAttr, setValueOrOpenAttr, bindToOpenAttr, loadView };

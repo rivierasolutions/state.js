@@ -30,9 +30,10 @@ function bindFoeachListItemState(state, stateForeachItemRoot, absPath, DOMPath, 
     }
 }
 
-function loadForeachListItemView(state, stateForeachItemRoot, DOMPath, tagName) {
-    const element = DOMPath.reduce((el,child) => el.children[child], stateForeachItemRoot)
-    loadView(state, element, state._composeTags.get(tagName));
+function loadForeachListItemView(state, stateForeachItemRoot, absPath, DOMPath, tagName, componentUpdates) {
+    const element = DOMPath.reduce((el,child) => el.children[child], stateForeachItemRoot);
+    let passJsonPath = element.getAttribute('state-pass')?.replace('@', absPath);
+    componentUpdates.set(element, loadView(state, element, state._composeTags.get(tagName), passJsonPath));
 }
 
 function removeStateForeachItem(state, absPath, statForeachElement, existingItemsQuery, index) {
@@ -51,7 +52,7 @@ function removeStateForeachItem(state, absPath, statForeachElement, existingItem
     }
 }
 
-function foreachStateItemFactory(state, absPath, statForeachElement, index) {
+function foreachStateItemFactory(state, absPath, statForeachElement, index, componentUpdates) {
     const domItem = statForeachElement.firstElementChild.cloneNode(true);
     const stateForeachId = statForeachElement.getAttribute("id");
     domItem.setAttribute("state-foreach-id", stateForeachId);
@@ -59,12 +60,9 @@ function foreachStateItemFactory(state, absPath, statForeachElement, index) {
 
     const composeTags = state._stateForeachComposeTags.get(stateForeachId);
     if (composeTags) {
-        Array.from(composeTags.keys()).forEach(composeTag => {
-            const templatePathMap = composeTags.get(composeTag);
-            Array.from(templatePathMap.keys()).forEach(DOMPath => {
-                loadForeachListItemView(state, domItem, DOMPath, composeTag);
-            });
-        });
+        Array.from(composeTags.entries())
+            .flatMap(([composeTag,templatePathMap]) => Array.from(Array.from(templatePathMap.keys())).map(DOMPath => [composeTag,DOMPath]))
+            .forEach(([composeTag,DOMPath]) => loadForeachListItemView(state, domItem, `${absPath}[${index}]`, DOMPath, composeTag, componentUpdates));
     }
     const stateTemplate = state._stateForeachItemBindings.get(stateForeachId);
     if (stateTemplate) {
@@ -82,7 +80,7 @@ function foreachStateItemFactory(state, absPath, statForeachElement, index) {
     return domItem;
 }
 
-function applyStateChange(state, absPath, elementOrPath, stateType, src, dst) {
+function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, componentUpdates) {
     const stateValue = getJSONPath(state._current, absPath);
     const element = elementOrPath instanceof HTMLElement
         ? elementOrPath
@@ -176,7 +174,7 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst) {
             removeStateForeachItem(state, absPath, element, existingItemsQuery);
             if (stateValue) {
                 (Array.isArray(stateValue) ? stateValue : [ stateValue ])
-                    .map((item, index) => foreachStateItemFactory(state, absPath, element, index))
+                    .map((item, index) => foreachStateItemFactory(state, absPath, element, index, componentUpdates))
                     .reverse()
                     .forEach(el => element.after(el));
             }
@@ -187,7 +185,7 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst) {
                 });
             } else if (src.length < stateValue.length) {
                 for (let i=0; i<stateValue.length - src.length; ++i) {
-                    const el = foreachStateItemFactory(state, absPath, element, src.length+i);
+                    const el = foreachStateItemFactory(state, absPath, element, src.length+i, componentUpdates);
                     const query = element.parentNode.querySelectorAll(`[state-foreach-id="${forEachId}"]`);
                     (query.length ? Array.from(query).at(-1) : element).after(el);
                 }
@@ -198,7 +196,11 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst) {
         bindToStateListenAttr(element, src, dst ?? stateValue);
     }
     else if (stateType === 'state-pass' && stateValue) {
-        element.state?.update(stateValue);
+        if (componentUpdates.has(element)) {
+            componentUpdates.set(element, componentUpdates.get(element).then(() => element.state?.update(stateValue) ?? Promise.reject()).then(() => [element,absPath]));
+        } else {
+            componentUpdates.set(element, (element.state?.update(stateValue) ?? Promise.reject()).then(() => [element,absPath]));
+        }
     }
 }
 

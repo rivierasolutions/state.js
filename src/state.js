@@ -4,6 +4,27 @@ import { mergeChanges } from './jsonMerger';
 import { buildState } from "./stateBuilder";
 import { applyStateChange } from "./stateChangeHandler";
 
+function applyState(state, changes, componentLoads) {
+    const componentUpdates = new Map(componentLoads);
+    if (!changes && !Array.isArray(changes)) {
+        Array.from(state._bindings.entries())
+            .flatMap(([path, elementMap]) => 
+                Array.from(elementMap.entries())
+                    .flatMap(([element, types]) => types.map(stateType => [path,element,stateType])))
+            .forEach(([path,element,stateType]) => applyStateChange(state, path, element, stateType, undefined, undefined, componentUpdates));
+    } else {
+        changes.forEach(({ path, src, dst }) => {
+            if (state._bindings.has(path)) {
+                Array.from(state._bindings.get(path).entries())
+                    .flatMap(([element,types]) => types.map(stateType => [path,element,stateType]))
+                    .forEach(([path,element,stateType]) => applyStateChange(state, path, element, stateType, src, dst, componentUpdates));
+            }
+        });
+    }
+    return Promise.allSettled(componentUpdates.values())
+        .then(all => all.filter(res => res.status === 'fulfilled' && res.value.at(1) !== 'loaded').map(res => res.value));
+}
+
 (function polyfill() {
     
     function load(rootElement) {
@@ -24,28 +45,16 @@ import { applyStateChange } from "./stateChangeHandler";
                 return this._current;
             },
             update: function(newState) {
-
-                const changes = mergeChanges(this, newState);
-                this.apply(changes);
-
-                rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
+                const state = this;
+                const changes = mergeChanges(state, newState);
+                return applyState(state, changes)
+                    .then(componentUpdates => {
+                        mergeChanges(state, componentUpdates.map(([el,absPath]) => ({ jsonPath: absPath, value: el.state.current() })));
+                        rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
+                    });
             },
-            apply: function(changes) {
-                if (!changes && !Array.isArray(changes)) {
-                    Array.from(this._bindings.entries())
-                        .flatMap(([path, elementMap]) => 
-                            Array.from(elementMap.entries())
-                                .flatMap(([element, types]) => types.map(stateType => [path,element,stateType])))
-                        .forEach(([path,element,stateType]) => applyStateChange(this, path, element, stateType, undefined, undefined));
-                    return;
-                }
-                changes.forEach(({ path, src, dst }) => {
-                    if (this._bindings.has(path)) {
-                        Array.from(this._bindings.get(path).entries())
-                            .flatMap(([element,types]) => types.map(stateType => [path,element,stateType]))
-                            .forEach(([path,element,stateType]) => applyStateChange(this, path, element, stateType, src, dst));
-                    }
-                });
+            apply: function() {
+                applyState();
             },
             create(element) {
                 return load(element);
@@ -58,6 +67,7 @@ import { applyStateChange } from "./stateChangeHandler";
         rootElement.state._current = {};
         rootElement.state._idSequence = { next: 0 };
         rootElement.state._bindings = new Map();
+        rootElement.state._initialBindings = new Map();
         rootElement.state._composeTags = new Map();
         rootElement.state._stateForeachItemBindings = new Map();
         rootElement.state._stateForeachComposeTags = new Map();
@@ -75,13 +85,20 @@ import { applyStateChange } from "./stateChangeHandler";
             }
         });
         if (!(rootElement == document && rootElement.documentElement.hasAttribute('state-ignore'))) {
-            buildState(rootElement);
-            rootElement.state.apply();
-
-            rootElement.state._initialBindings = new Map(rootElement.state._bindings);
+            const componentLoads = new Map();
+            buildState(rootElement, componentLoads);
+            return Promise.allSettled(componentLoads)
+                .then(() => applyState(rootElement.state, undefined, componentLoads))
+                .then(componentUpdates => {
+                    mergeChanges(rootElement.state, componentUpdates.map(([el,absPath]) => ({ jsonPath: absPath, value: el.state.current() })));
+                    rootElement.state._initialBindings = new Map(rootElement.state._bindings);
+                    rootElement.dispatchEvent(new CustomEvent(`StateLoaded`));            
+                })
+                .then(rootElement.state);
+        } else {
+            rootElement.dispatchEvent(new CustomEvent(`StateLoaded`))
+            return Promise.resolve(rootElement.state);
         }
-        rootElement.dispatchEvent(new CustomEvent(`StateLoaded`));
-        return rootElement.state;
     }
 
     document.addEventListener('DOMContentLoaded', () => load(document));
