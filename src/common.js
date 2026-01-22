@@ -125,6 +125,8 @@ function loadView(state, element, templatePath, absPath) {
     .then(newState => {
         if (newState) {
             newState = document.state.create(element);
+            newState._parentStateRoot = element;
+            newState._parentStateAbsPath = absPath;
             newState._depth = state._depth + 1;
             element.dispatchEvent(new CustomEvent("StateComposed", {
                 bubbles: true,
@@ -134,7 +136,7 @@ function loadView(state, element, templatePath, absPath) {
             return undefined;
         }
     })
-    .then(() => [element,absPath ?? 'loaded']);
+    .then(() => [element,absPath,undefined]);
 }
 
 export { buildJSONPath, getJSONPath, registerBinding, unregisterBinding, placeholderFactory, bindToValueAttr, setValueOrOpenAttr, bindToOpenAttr, loadView };

@@ -196,11 +196,7 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
         bindToStateListenAttr(element, src, dst ?? stateValue);
     }
     else if (stateType === 'state-pass' && stateValue) {
-        if (componentUpdates.has(element)) {
-            componentUpdates.set(element, componentUpdates.get(element).then(() => element.state?.update(stateValue) ?? Promise.reject()).then(() => [element,absPath]));
-        } else {
-            componentUpdates.set(element, (element.state?.update(stateValue) ?? Promise.reject()).then(() => [element,absPath]));
-        }
+        componentUpdates.set(element, (componentUpdates.get(element) ?? Promise.resolve()).then(() => [element,absPath,stateValue]));
     }
 }
 

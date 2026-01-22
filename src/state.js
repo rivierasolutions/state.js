@@ -22,7 +22,32 @@ function applyState(state, changes, componentLoads) {
         });
     }
     return Promise.allSettled(componentUpdates.values())
-        .then(all => all.filter(res => res.status === 'fulfilled' && res.value.at(1) !== 'loaded').map(res => res.value));
+        .then(all => all.filter(res => res.status === 'fulfilled' && res.value.at(1)).map(res => res.value));
+}
+
+function updateState(rootElement, newState, triggeredByParent = false) {
+    const state = rootElement.state;
+    if (!state) {
+        return Promise.reject();
+    }
+    const changes = mergeChanges(state, newState);
+    return applyState(state, changes)
+        .then(componentUpdates => Promise.allSettled(componentUpdates
+            .map(res => (res.at(2) === undefined ? Promise.resolve() : updateState(res.at(0), res.at(2), true)).then(() => res))))
+        .then(componentUpdates => {
+            mergeChanges(state, componentUpdates
+                .filter(res => res.status === 'fulfilled')
+                .map(({ value: [el,absPath] }) => ({ jsonPath: absPath, value: el.state.current() })));
+            rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
+            if (!triggeredByParent && state._parentStateRoot) {
+                childStateUpdated(state._parentStateRoot, state._parentStateAbsPath, state.current());
+            }
+        });
+}
+
+function childStateUpdated(rootElement, jsonPath, value) {
+    mergeChanges(rootElement.state, [{ jsonPath, value }]);
+    rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
 }
 
 (function polyfill() {
@@ -45,13 +70,7 @@ function applyState(state, changes, componentLoads) {
                 return this._current;
             },
             update: function(newState) {
-                const state = this;
-                const changes = mergeChanges(state, newState);
-                return applyState(state, changes)
-                    .then(componentUpdates => {
-                        mergeChanges(state, componentUpdates.map(([el,absPath]) => ({ jsonPath: absPath, value: el.state.current() })));
-                        rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
-                    });
+                updateState(rootElement, newState);
             },
             apply: function() {
                 applyState();
@@ -65,6 +84,8 @@ function applyState(state, changes, componentLoads) {
         };
 
         rootElement.state._current = {};
+        rootElement.state._parentStateRoot = undefined;
+        rootElement.state._parentStateAbsPath = undefined;
         rootElement.state._idSequence = { next: 0 };
         rootElement.state._bindings = new Map();
         rootElement.state._initialBindings = new Map();
@@ -74,7 +95,7 @@ function applyState(state, changes, componentLoads) {
         rootElement.state._stateForeachScopes = new Map();
         rootElement.state._depth = 0;
         if (rootElement === document) {
-            rootElement.state._maxDepth = 1;
+            rootElement.state._maxDepth = 20;
         }
 
         rootElement.querySelectorAll("state-compose").forEach(compose => {
