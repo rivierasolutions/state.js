@@ -47,7 +47,7 @@ function registerStateForeachBinding(state, relPath, stateType, element, statFor
     if (!state._stateForeachItemBindings.has(id)) {
         state._stateForeachItemBindings.set(id, new Map());
     }
-    itemBindings = state._stateForeachItemBindings.get(id);
+    const itemBindings = state._stateForeachItemBindings.get(id);
     if (!itemBindings.has(relPath)) {
         itemBindings.set(relPath, new Map());
     }
@@ -71,7 +71,7 @@ function registerStateForeachComposeTag(state, composeTag, element, statForeachR
     if (!state._stateForeachComposeTags.has(id)) {
         state._stateForeachComposeTags.set(id, new Map());
     }
-    itemBindings = state._stateForeachComposeTags.get(id);
+    const itemBindings = state._stateForeachComposeTags.get(id);
     if (!itemBindings.has(composeTag)) {
         itemBindings.set(composeTag, new Set());
     }

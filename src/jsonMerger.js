@@ -73,8 +73,8 @@ function buildArrayChanges(path, src, dst, res, toMerge, stateForeachScopes, onN
         if (isObjectOrArray(dst[i])) {
             res[i] = Array.isArray(dst[i]) ? [...(dst[i])] : { ...dst[i] };
         }
-        dst[i].$index = i;
         res[i].$index = i;
+        toMerge.push({ path: `${path}[${i}].$index`, src: undefined, dst: i, res: res[i].$index });
     }
     toMerge.push({ commit: res, src, dst });
     if (!Array.isArray(src)) {
