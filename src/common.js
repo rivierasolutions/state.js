@@ -124,7 +124,6 @@ function loadView(state, element, templatePath, absPath) {
     })
     .then(newState => {
         if (newState) {
-            newState = document.state.create(element);
             newState._parentStateRoot = element;
             newState._parentStateAbsPath = absPath;
             newState._depth = state._depth + 1;
