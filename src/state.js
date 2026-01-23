@@ -52,7 +52,7 @@ function childStateUpdated(rootElement, jsonPath, value) {
                 updateState(rootElement, newState);
             },
             apply: function() {
-                applyState();
+                applyState(this);
             },
             create(element) {
                 return load(element);
