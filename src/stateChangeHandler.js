@@ -22,18 +22,17 @@ function bindFoeachListItemState(state, stateForeachItemRoot, absPath, DOMPath, 
     else if (stateType === 'state-listen' && !element.hasAttribute("id")) {
         element.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
     }
-    else if (stateType === 'state-pass') {
-        const statePass = getJSONPath(state._current, absPath);
-        if (statePass) {
-            element.addEventListener('StateLoaded', () => element.state.update(statePass), { once: true });
-        }
-    }
 }
 
 function loadForeachListItemView(state, stateForeachItemRoot, absPath, DOMPath, tagName, componentUpdates) {
     const element = DOMPath.reduce((el,child) => el.children[child], stateForeachItemRoot);
     let passJsonPath = element.getAttribute('state-pass')?.replace('@', absPath);
-    componentUpdates.set(element, loadView(state, element, state._composeTags.get(tagName), passJsonPath));
+    let loadPromise = loadView(state, element, state._composeTags.get(tagName), passJsonPath);
+    const statePass = passJsonPath && getJSONPath(state._current, passJsonPath);
+    if (statePass) {
+        loadPromise = loadPromise.then(() => [element,passJsonPath,statePass]);
+    }
+    componentUpdates.set(element, loadPromise);
 }
 
 function removeStateForeachItem(state, absPath, statForeachElement, existingItemsQuery, index) {
