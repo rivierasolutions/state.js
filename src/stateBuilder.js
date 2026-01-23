@@ -217,13 +217,12 @@ function visitAndBuild(visitContext, state, componentUpdates) {
         }
     }
     if (state._composeTags.has(node.tagName)) {
-        const templatePath = state._composeTags.get(node.tagName);
         let passJsonPath = undefined;
         if (node.hasAttribute('state-pass')) {
             passJsonPath = node.getAttribute('state-pass');
         }
         if (!isStateForeachItemScope) {
-            componentUpdates.set(node, loadView(state, node, templatePath, passJsonPath.replace('@', absPath)));
+            componentUpdates.set(node, loadView(state, node, passJsonPath.replace('@', absPath)));
             if (passJsonPath) {
                 registerBinding(state, passJsonPath.replace('@', absPath), 'state-pass', node);
             }

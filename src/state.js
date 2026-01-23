@@ -2,28 +2,7 @@ import { getJSONPath } from './common';
 import { buildContract, wrapContract } from "./contractBuilder";
 import { mergeChanges } from './jsonMerger';
 import { buildState } from "./stateBuilder";
-import { applyStateChange } from "./stateChangeHandler";
-
-function applyState(state, changes, componentLoads) {
-    const componentUpdates = new Map(componentLoads);
-    if (!changes && !Array.isArray(changes)) {
-        Array.from(state._bindings.entries())
-            .flatMap(([path, elementMap]) => 
-                Array.from(elementMap.entries())
-                    .flatMap(([element, types]) => types.map(stateType => [path,element,stateType])))
-            .forEach(([path,element,stateType]) => applyStateChange(state, path, element, stateType, undefined, undefined, componentUpdates));
-    } else {
-        changes.forEach(({ path, src, dst }) => {
-            if (state._bindings.has(path)) {
-                Array.from(state._bindings.get(path).entries())
-                    .flatMap(([element,types]) => types.map(stateType => [path,element,stateType]))
-                    .forEach(([path,element,stateType]) => applyStateChange(state, path, element, stateType, src, dst, componentUpdates));
-            }
-        });
-    }
-    return Promise.allSettled(componentUpdates.values())
-        .then(all => all.filter(res => res.status === 'fulfilled' && res.value.at(1)).map(res => res.value));
-}
+import { applyState } from "./stateChangeHandler";
 
 function updateState(rootElement, newState, triggeredByParent = false) {
     const state = rootElement.state;
@@ -89,7 +68,7 @@ function childStateUpdated(rootElement, jsonPath, value) {
         rootElement.state._idSequence = { next: 0 };
         rootElement.state._bindings = new Map();
         rootElement.state._initialBindings = new Map();
-        rootElement.state._composeTags = new Map();
+        rootElement.state._composeTags = rootElement === document ? new Map() : document.state._composeTags;
         rootElement.state._stateForeachItemBindings = new Map();
         rootElement.state._stateForeachComposeTags = new Map();
         rootElement.state._stateForeachScopes = new Map();
@@ -102,7 +81,11 @@ function childStateUpdated(rootElement, jsonPath, value) {
             const tag = compose.getAttribute('tag');
             const src = compose.getAttribute('src');
             if (tag && src) {
-                rootElement.state._composeTags.set(tag.toUpperCase(), src);
+                const local = document.getElementById(src);
+                const promise = (local && local.tagName === 'TEMPLATE'
+                    ? Promise.resolve(local.innerHTML)
+                    : fetch(src).then(res => res.ok ? res.text() : Promise.reject()));
+                rootElement.state._composeTags.set(tag.toUpperCase(), promise);
             }
         });
         if (!(rootElement == document && rootElement.documentElement.hasAttribute('state-ignore'))) {

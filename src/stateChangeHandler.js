@@ -24,10 +24,10 @@ function bindFoeachListItemState(state, stateForeachItemRoot, absPath, DOMPath, 
     }
 }
 
-function loadForeachListItemView(state, stateForeachItemRoot, absPath, DOMPath, tagName, componentUpdates) {
+function loadForeachListItemView(state, stateForeachItemRoot, absPath, DOMPath, componentUpdates) {
     const element = DOMPath.reduce((el,child) => el.children[child], stateForeachItemRoot);
     let passJsonPath = element.getAttribute('state-pass')?.replace('@', absPath);
-    let loadPromise = loadView(state, element, state._composeTags.get(tagName), passJsonPath);
+    let loadPromise = loadView(state, element, passJsonPath);
     const statePass = passJsonPath && getJSONPath(state._current, passJsonPath);
     if (statePass) {
         loadPromise = loadPromise.then(() => [element,passJsonPath,statePass]);
@@ -61,7 +61,7 @@ function foreachStateItemFactory(state, absPath, statForeachElement, index, comp
     if (composeTags) {
         Array.from(composeTags.entries())
             .flatMap(([composeTag,templatePathMap]) => Array.from(Array.from(templatePathMap.keys())).map(DOMPath => [composeTag,DOMPath]))
-            .forEach(([composeTag,DOMPath]) => loadForeachListItemView(state, domItem, `${absPath}[${index}]`, DOMPath, composeTag, componentUpdates));
+            .forEach(([composeTag,DOMPath]) => loadForeachListItemView(state, domItem, `${absPath}[${index}]`, DOMPath, componentUpdates));
     }
     const stateTemplate = state._stateForeachItemBindings.get(stateForeachId);
     if (stateTemplate) {
@@ -199,4 +199,25 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
     }
 }
 
-export { applyStateChange };
+function applyState(state, changes, componentLoads) {
+    const componentUpdates = new Map(componentLoads);
+    if (!changes && !Array.isArray(changes)) {
+        Array.from(state._bindings.entries())
+            .flatMap(([path, elementMap]) => 
+                Array.from(elementMap.entries())
+                    .flatMap(([element, types]) => types.map(stateType => [path,element,stateType])))
+            .forEach(([path,element,stateType]) => applyStateChange(state, path, element, stateType, undefined, undefined, componentUpdates));
+    } else {
+        changes.forEach(({ path, src, dst }) => {
+            if (state._bindings.has(path)) {
+                Array.from(state._bindings.get(path).entries())
+                    .flatMap(([element,types]) => types.map(stateType => [path,element,stateType]))
+                    .forEach(([path,element,stateType]) => applyStateChange(state, path, element, stateType, src, dst, componentUpdates));
+            }
+        });
+    }
+    return Promise.allSettled(componentUpdates.values())
+        .then(all => all.filter(res => res.status === 'fulfilled' && res.value.at(1)).map(res => res.value));
+}
+
+export { applyState };

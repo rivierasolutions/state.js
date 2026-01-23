@@ -106,36 +106,36 @@ function setValueOrOpenAttr(element, attrName, stateValue) {
     }
 }
 
-function loadView(state, element, templatePath, absPath) {
-    if (state._depth >= document.state._maxDepth) {
-        throw new Error(`Cannot load view ${templatePath} for ${element.tagName}. Maximum state nesting depth exceeded.`);
+function loadView(state, element, absPath) {
+    if (!state._composeTags.has(element.tagName)) {
+        return Promise.reject(`Failed to load view for ${element.tagName}.`);
     }
-    const local = document.getElementById(templatePath);
-    return (local && local.tagName === 'TEMPLATE'
-        ? Promise.resolve(local.innerHTML)
-        : fetch(templatePath).then(res => res.ok ? res.text() : ''))
-    .then(html => {
-        if (html) {
-            element.innerHTML = html;
-            return document.state.create(element);
-        } else {
-            return undefined;
-        }
-    })
-    .then(newState => {
-        if (newState) {
-            newState._parentStateRoot = element;
-            newState._parentStateAbsPath = absPath;
-            newState._depth = state._depth + 1;
-            element.dispatchEvent(new CustomEvent("StateComposed", {
-                bubbles: true,
-                detail: { view: templatePath, state: newState }
-            }));
-        } else {
-            return undefined;
-        }
-    })
-    .then(() => [element,absPath,undefined]);
+    if (state._depth >= document.state._maxDepth) {
+        return Promise.reject(`Cannot load view ${templatePath} for ${element.tagName}. Maximum state nesting depth exceeded.`)
+    }
+    return state._composeTags.get(element.tagName)
+        .then(html => {
+            if (html) {
+                element.innerHTML = html;
+                return document.state.create(element);
+            } else {
+                return undefined;
+            }
+        })
+        .then(newState => {
+            if (newState) {
+                newState._parentStateRoot = element;
+                newState._parentStateAbsPath = absPath;
+                newState._depth = state._depth + 1;
+                element.dispatchEvent(new CustomEvent("StateComposed", {
+                    bubbles: true,
+                    detail: { view: templatePath, state: newState }
+                }));
+            } else {
+                return undefined;
+            }
+        })
+        .then(() => [element,absPath,undefined]);
 }
 
 export { buildJSONPath, getJSONPath, registerBinding, unregisterBinding, placeholderFactory, bindToValueAttr, setValueOrOpenAttr, bindToOpenAttr, loadView };
