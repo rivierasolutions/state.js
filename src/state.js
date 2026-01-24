@@ -10,7 +10,7 @@ async function updateStateTree(rootElement, newState) {
     while(statesToUpdate.length) {
         const next = statesToUpdate.pop();
         if (next.componentUpdates) {
-            mergeChanges(next.root.state, componentUpdates.map(([el,absPath,update]) => ({ jsonPath: absPath, value: el.state.current() })));
+            mergeChanges(next.root.state, next.componentUpdates.map(([el,absPath,update]) => ({ jsonPath: absPath, value: el.state.current() })));
             next.root.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
         } else {
             const componentUpdates = (await applyState(next.root.state, mergeChanges(next.root.state, next.update)))
