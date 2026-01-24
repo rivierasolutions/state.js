@@ -124,7 +124,7 @@ function loadView(state, element, absPath) {
         })
         .then(newState => {
             if (newState) {
-                newState._parentStateRoot = element;
+                newState._parentStateRoot = state._element;
                 newState._parentStateAbsPath = absPath;
                 newState._depth = state._depth + 1;
                 element.dispatchEvent(new CustomEvent("StateComposed", {

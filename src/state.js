@@ -21,19 +21,24 @@ async function updateStateTree(rootElement, newState) {
             }
         }
     }
-    if (rootElement.state._parentStateRoot) {
-        childStateUpdated(rootElement.state._parentStateRoot, rootElement.state._parentStateAbsPath, rootElement.state.current());
+    const parentsToUpdate = rootElement.state._parentStateRoot ? [rootElement] : [];
+    while (parentsToUpdate.length) {
+        const child = parentsToUpdate.shift();
+        const parent = child.state._parentStateRoot;
+        if (!parent.contains(child)) {
+            continue;
+        }
+        mergeChanges(parent.state, [{ jsonPath: child.state._parentStateAbsPath, value: child.state.current() }]);
+        parent.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
+        if (parent.state?._parentStateRoot) {
+            parentsToUpdate.push(parent);
+        }
     }
-}
-
-function childStateUpdated(rootElement, jsonPath, value) {
-    mergeChanges(rootElement.state, [{ jsonPath, value }]);
-    rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
 }
 
 (function polyfill() {
     
-    function load(rootElement) {
+    async function load(rootElement) {
         rootElement.state = {
             current: function() {
                 return this._current;
@@ -65,6 +70,7 @@ function childStateUpdated(rootElement, jsonPath, value) {
         };
 
         rootElement.state._current = {};
+        rootElement.state._element = rootElement;
         rootElement.state._parentStateRoot = undefined;
         rootElement.state._parentStateAbsPath = undefined;
         rootElement.state._idSequence = { next: 0 };
@@ -93,17 +99,17 @@ function childStateUpdated(rootElement, jsonPath, value) {
         if (!(rootElement == document && rootElement.documentElement.hasAttribute('state-ignore'))) {
             const componentLoads = new Map();
             buildState(rootElement, componentLoads);
-            return Promise.allSettled(componentLoads)
-                .then(() => applyState(rootElement.state, undefined, componentLoads))
-                .then(componentUpdates => {
-                    mergeChanges(rootElement.state, componentUpdates.map(([el,absPath]) => ({ jsonPath: absPath, value: el.state.current() })));
-                    rootElement.state._initialBindings = new Map(rootElement.state._bindings);
-                    rootElement.dispatchEvent(new CustomEvent(`StateLoaded`));            
-                })
-                .then(rootElement.state);
+            await Promise.allSettled(componentLoads);
+            const componentUpdates = await applyState(rootElement.state, undefined, componentLoads);
+
+            mergeChanges(rootElement.state, componentUpdates.map(([el,absPath]) => ({ jsonPath: absPath, value: el.state.current() })));
+            rootElement.state._initialBindings = new Map(rootElement.state._bindings);
+            rootElement.dispatchEvent(new CustomEvent(`StateLoaded`));
+
+            return rootElement.state;
         } else {
             rootElement.dispatchEvent(new CustomEvent(`StateLoaded`))
-            return Promise.resolve(rootElement.state);
+            return rootElement.state;
         }
     }
 
