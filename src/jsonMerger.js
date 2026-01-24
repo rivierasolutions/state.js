@@ -94,7 +94,7 @@ function buildArrayChanges(path, src, dst, res, toMerge, stateForeachScopes, onN
             toMerge.push({ path: `${path}[${i}]`, src: src[i], dst: e, res: res[i], onNotEqual: [ ...(onNotEqual ?? []), () => { arrayChanges.pending = false; } ] });
         });
     }
-    toMerge.push({ path: `${path}.length`, src: src.length, dst: dst.length });
+    toMerge.push({ path: `${path}.length`, src: src?.length, dst: dst.length });
     return arrayChanges;
 }
 

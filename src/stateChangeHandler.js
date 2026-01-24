@@ -178,13 +178,14 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
                     .forEach(el => element.after(el));
             }
         } else {
-            if (src.length > stateValue.length) {
-                Array.from(existingItemsQuery).slice(-1*(src.length - stateValue.length)).forEach((el, index) => {
-                    removeStateForeachItem(state, absPath, element, existingItemsQuery, src.length-1-index);
+            const srcLength = src?.length ?? 0;
+            if (srcLength > stateValue.length) {
+                Array.from(existingItemsQuery).slice(-1*(srcLength - stateValue.length)).forEach((el, index) => {
+                    removeStateForeachItem(state, absPath, element, existingItemsQuery, srcLength-1-index);
                 });
-            } else if (src.length < stateValue.length) {
-                for (let i=0; i<stateValue.length - src.length; ++i) {
-                    const el = foreachStateItemFactory(state, absPath, element, src.length+i, componentUpdates);
+            } else if (srcLength < stateValue.length) {
+                for (let i=0; i<stateValue.length - srcLength; ++i) {
+                    const el = foreachStateItemFactory(state, absPath, element, srcLength+i, componentUpdates);
                     const query = element.parentNode.querySelectorAll(`[state-foreach-id="${forEachId}"]`);
                     (query.length ? Array.from(query).at(-1) : element).after(el);
                 }
