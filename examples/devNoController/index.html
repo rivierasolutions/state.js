@@ -1,0 +1,39 @@
+<html lang="en">
+    <head>
+        <script src="/dist/state.min.js" defer></script>
+        
+        <style>.red { color: red; }</style>
+        <state-compose tag="app-my-component" src="myComponent.html"></state-compose>
+    </head>
+    <body>
+        Hello World! <br>
+        <state state-if="@.showMVC2"> MVC 2 </state> <br>
+        <br>
+        <state state-content="@.showMVC2"></state> <br>
+        <state state-if-not="@.showMVC2" state-content="@.someText" state-class-red-if-not="@.showMVC2">Lorem ipsum dolor sit amet</state> <br>
+        <input type="text" state-attr-value="@.someText" /> <br>
+        <ul state-if="@.showList">
+            <li state-foreach="@.stateArray">
+                <state state-content="@.$index"></state>: <state state-content="@.text"></state> <input type="text" state-attr-value="@.text" /> <br>
+                <ul>
+                    <li state-foreach="@.numberArray" state-attr-class="@.numberClass">
+                        <state state-content="@.$index"></state>: <state state-content="@.number"></state>
+                        <input type="number" state-attr-value="@.number" /> <br>
+                    </li>
+                </ul>
+                <app-my-component state-pass="@.component"></app-my-component>
+                <br>
+                <button state-listen="@.onRemove">Remove</button>
+            </li>
+        </ul>
+        <br>
+        <button state-class-red-if-not="@.showMVC2" state-listen="@.onButtonClick">Click me</button> <br>
+        <button state-listen="@.onToggleList">
+            <state state-if="@.showList">Hide list</state>
+            <state state-if-not="@.showList">Show list</state>
+        </button>
+        <br>
+        <br>
+        <app-my-component state-pass="@.myComponentState"></app-my-component>
+    </body>
+</html>
