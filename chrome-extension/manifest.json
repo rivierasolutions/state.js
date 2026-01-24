@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "StateJS Designer",
+  "version": "0.1",
+  "description": "Manipulate document.state in real-time.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": ["activeTab", "scripting", "sidePanel"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "side_panel": { "default_path": "popup.html" }
+}
