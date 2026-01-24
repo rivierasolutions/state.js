@@ -4,24 +4,26 @@ import { mergeChanges } from './jsonMerger';
 import { buildState } from "./stateBuilder";
 import { applyState } from "./stateChangeHandler";
 
-function updateState(rootElement, newState, triggeredByParent = false) {
-    const state = rootElement.state;
-    if (!state) {
-        return Promise.reject();
-    }
-    const changes = mergeChanges(state, newState);
-    return applyState(state, changes)
-        .then(componentUpdates => Promise.allSettled(componentUpdates
-            .map(res => (res.at(2) === undefined ? Promise.resolve() : updateState(res.at(0), res.at(2), true)).then(() => res))))
-        .then(componentUpdates => {
-            mergeChanges(state, componentUpdates
-                .filter(res => res.status === 'fulfilled')
-                .map(({ value: [el,absPath] }) => ({ jsonPath: absPath, value: el.state.current() })));
-            rootElement.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
-            if (!triggeredByParent && state._parentStateRoot) {
-                childStateUpdated(state._parentStateRoot, state._parentStateAbsPath, state.current());
+async function updateStateTree(rootElement, newState) {
+
+    const statesToUpdate = [{ root: rootElement, update: newState, componentUpdates: undefined }];
+    while(statesToUpdate.length) {
+        const next = statesToUpdate.pop();
+        if (next.componentUpdates) {
+            mergeChanges(next.root.state, componentUpdates.map(([el,absPath,update]) => ({ jsonPath: absPath, value: el.state.current() })));
+            next.root.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
+        } else {
+            const componentUpdates = (await applyState(next.root.state, mergeChanges(next.root.state, next.update)))
+                .filter(([el,absPath,update]) => update !== undefined && el.state);
+            if (componentUpdates.length) {
+                statesToUpdate.push({ root: next.root, update: undefined, componentUpdates });
+                statesToUpdate.push(...componentUpdates.map(([root,absPath,update]) => ({ root, update, componentUpdates: undefined })));
             }
-        });
+        }
+    }
+    if (rootElement.state._parentStateRoot) {
+        childStateUpdated(rootElement.state._parentStateRoot, rootElement.state._parentStateAbsPath, rootElement.state.current());
+    }
 }
 
 function childStateUpdated(rootElement, jsonPath, value) {
@@ -49,7 +51,7 @@ function childStateUpdated(rootElement, jsonPath, value) {
                 return this._current;
             },
             update: function(newState) {
-                updateState(rootElement, newState);
+                return updateStateTree(rootElement, newState);
             },
             apply: function() {
                 applyState(this);
