@@ -377,9 +377,13 @@ A new *View State* will be created of each element `<[tagName]>` (see `[element]
 While the created *View State* is independent from the parent View's state by default, it may be referenced 
 in the parent *View State* using the `state-pass` attributte (see `state-pass="[JSONpath]"` for details).  
 
+`state-compose` elements may be defined anywhere in the View's layout (not necessarily in the <head> element).  
+When a `state-compose` element is defined multiple times for the same `[tagName]` in a View, the last 
+`state-compose` element is considered valid.
+
 Cirular dependecies between Views declared with `state-compose` may cause infinite nesting (e.g. View *A* uses `state-compose` to include View *B*,
 which in turn uses `state-compose` to include View *A*). To protect against such scenarios, state.js defines the **maximum nesting depth = 20**,
-beyond which HTML elements with `state-compose` declaramtions will be ignored.
+beyond which HTML elements with `state-compose` declarations will be ignored.
 
 ### `state-pass="[JSONpath]"` (html attribute)
 
@@ -394,14 +398,40 @@ updates will be propagated to this custom HTML element's *View State*
 ```html
 <html>
     <head>
-        <state-compose tag="app-my-element" src="/compoonents/myElement.html"></state-compose>
+        <state-compose tag="app-my-element" src="my-element"></state-compose>
     </head>
     <body>
         <h1 state-content="@.myHeader"></h1>
 
         <app-my-elemment state-pass="@.myElementState"></app-my-elemment>
+
+        <template id="my-element">
+            <p>
+                <state state-content="@.sommeText"></state>
+                <state state-content="@.someNumber"></state>
+            </p>
+        </template>
     </body>
 </html>
+```
+```javascript
+await document.state.update({
+    myHeader: 'Hello World',
+    myElementState: {
+        sommeText: 'Text inside my element',
+        someNumber: 123
+    }
+});
+
+const state = document.state.current();
+// state is equal to:
+// {
+//   myHeader: 'Hello World',
+//   myElementState: {
+//     sommeText: 'Text inside my element',
+//     someNumber: 123
+//   }
+// }
 ```
 
 #### Remarks
