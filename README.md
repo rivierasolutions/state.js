@@ -17,6 +17,11 @@ State.js introduces the concept of a **Passive View** - A *View* defined only by
 All **logic** that controls how the *state* or *layout* of the *View* is transformed throughout it's lifecycle is **delegated to the Controller**,
 and should be **decoupled and separate from the View**.
 
+This concept stands in stark contrast to leading web development frameworks like:
+- *React* - Where the *View's layout* and *state* are tightly intertwined with the *Controller's logic* inside JSX components.
+- *Angular* - Where *View* and *Controller* separation exists, however *logic* may easily leak into the *View's layout* 
+through even simple directive expressions like `<div *ngIf="isLoaded && getDataItems() > 0"></div>`.
+
 #### The View State: a View - Controller Contract
 
 State.js introduces the **View State** - A JSON object defined in the *View*, that serves as a Contract between the *View* and the *Controller*. Hence:
