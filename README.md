@@ -2,6 +2,8 @@
 
 An HTML - javascript framework that re-introduces the MVC (Model-View-Controller) architectural pattern into modern web applications.
 
+## Features
+
 #### MVC
 State.js follows the philosphy that even the simplest web application, like any other standalone application, features:
 - a View (the HTML document),
@@ -20,7 +22,8 @@ and should be **decoupled and separate from the View**.
 This concept stands in stark contrast to leading web development frameworks like:
 - *React* - Where the *View's layout* and *state* are tightly intertwined with the *Controller's logic* inside JSX components.
 - *Angular*, *Vue* - Where *View* and *Controller* separation exists, however *logic* may easily leak into the *View's layout* 
-through even simple directive expressions like `<div *ngIf="isLoaded && getDataItems() > 0"></div>`.
+through even simple directive expressions like `<div *ngIf="isLoaded && getDataItems() > 0"></div>`. Such leaks dramatically increase
+the complexity of the *View - Controller Contract*, and thus introduce tight coupling between the *View* and *Controller*.
 
 #### The View State: a View - Controller Contract
 
@@ -30,15 +33,17 @@ State.js introduces the **View State** - A JSON object defined in the *View*, th
 - A **UI/UX designer** is able to develop and test the *View's layout* without a coupled *Controller* by manually modifying the **View State** of a rendered *View*.
 - A **web developer** is able to develop and test the *Controller's logic* without touching the *View's* layout, or by working on a stub View that defines an equivalent **View State**.
 
-
-
-## Features
+### State.js feature summary
 
 - Enables full decoupling of the View (HTML) from the Controller (javascript code) in web applications.
-- Introduces the *view state* a contract between the View and the Controller, stored within the DOM tree in JSON format.
-- The *view state* is defined within the View (HTML), using special HTML attribures, tags and JSONPath queries.
+- Introduces the *View State* - a Contract between the View and the Controller, stored within the DOM tree as a JSON object.
+- The *View State* is defined within the View (HTML), using JSONPath queries in special HTML attribures or HTML elements.
 - The Controller (javascript code) may retrieve and update the *view state* at any time.
 - Supports web components
+- Features a *Visual Studio Code extension* to automatically generate .d.ts Contracts for HTML files (Views) 
+for typescript and type-aware javascript Controller development.
+- Features a *Google Chrome extension* to manually manipulate the *View State* of a HTML file (View) without 
+a coupled Controller for interactive, Controllerless View design (also compatible with MS Edge).
 
 ## Installation
 
@@ -85,7 +90,7 @@ document.addEventListener('StateLoaded', () => {
 
     document.state.update({
         headerMessage: 'Hello World',
-        showSubheader: false,
+        showSubheader: true,
         subHeaderMessage: 'from state.js',
         onToggleSubheader: { 'click': toggleSubheader }
     });
@@ -110,10 +115,20 @@ the *Controller* `index.controller.js` may:
 - retrieve the current **View State** by calling `document.state.current()`
 - update the **View State** by calling `document.state.update(myNewState)`.
 
-Notice how:
-- The `state-if="@.showSubheader"` attribute enables adding or removing it's element from the DOM tree based on the truthiness of the `showSubheader` state field.
-- The `state-content="@.subHeaderMessage"` attribute enables displaying text content in it's parent element based on the value of the `subHeaderMessage` state field.
-- The `state-listen="@.onToggleSubheader"` attribute enables attaching DOM event listeners to it's parent element based on the keys and values of the `onToggleSubheader` state field.
+Notice how upon the first `document.state.update(...)` call, the **View State** is updated by the Controller to:
+```json
+{
+    "headerMessage": "Hello World",
+    "showSubheader": true,
+    "subHeaderMessage": "from state.js",
+    "onToggleSubheader": { "click": toggleSubheader }
+}
+```
+State.js automatically propagates the updated **View State** across the View's layout.  
+In particular:
+- The `state-if="@.showSubheader"` attribute adds or removes it's element from the DOM tree based on the truthiness of the `showSubheader` state field.
+- The `state-content="@.subHeaderMessage"` attribute renders text content in it's parent element based on the value of the `subHeaderMessage` state field.
+- The `state-listen="@.onToggleSubheader"` attribute attaches DOM event listeners to it's parent element based on the keys and values of the `onToggleSubheader` state field.
 - The `<state>` tag allows defining `state-` attributes on text blocks without wrapping them in any other HTML tag.
 
 ## View API
@@ -215,7 +230,30 @@ The special `$index` field, containing the array item's current index will be ap
 
 ### `state-listen="[JSONpath]"` (html attribute)
 
-Initializes the given state field with this DOM element's "id" attribute. If the element does not have an "id" attribute a unique id will be generated.
+Attaches DOM Event listeners defined in the state field `[JSONpath]` to this DOM element.  
+The `[JSONpath]` state field is assumed to be an `Object` containing keys defined as DOM event names,
+and values defined as references to javascript `functions` that will be triggered on the respective DOM event.
+
+#### Example:
+```html
+<button state-listen="@.onButtonEvents">My Button</button>
+```
+```javascript
+document.state.update({
+    onButtonEvents: { 
+        'click': (event) => console.log(`Clicked button: ${event.target.innerText}`),
+        'mouseover': (event) => console.log(`Hovered over button: ${event.target.innerText}`)
+    }
+});
+```
+
+#### Remarks
+
+Event listeners are added to DOM elements based on the *keys* and *values* in the `[JSONpath]` state field `Object` using:
+```javascript
+DOMelement.addEventListener(key, value);
+```
+If a value is updated to a new function reference, the previous event listener will be automatically removed by state.js.
 
 ### `state-attr-[name]="[JSONpath]"` (html attribute)
 
