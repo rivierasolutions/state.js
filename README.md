@@ -8,7 +8,9 @@ State.js follows the philosphy that even the simplest web application, like any 
 - a Controller (the javascript code controlling the View)
 - a Model (the javascript code defining content and processes relevant to the application).  
 
-State.js handles interactions between the *View* and the *Controller*. Interactions between the *Controller* and the *Model* are **out of scope of this framewrok**.
+State.js handles interactions between the *View* and the *Controller*. Interactions between the *Controller* and the *Model*
+may be sufficiently handled by existing frameworks (e.g. *Redux* for complex cases) or custom javascript code (for simple cases),
+and are thus **out of scope of this framewrok**.
 
 #### The Passive View
 State.js introduces the concept of a **Passive View** - A *View* that defines it's **layout** and **state**, but **does not define any logic**.  
@@ -224,7 +226,7 @@ for the following HTML element - attribute pairs:
 - `<textarea>` and `value`: `<textarea state-attr-value="@.myText">`
 - `<select>` and `value`: `<select state-attr-value="@.mySelectedItem">`
 - `<input>` with `type="checkbox"` and `checked`: `<input type="checkbox" state-attr-checked-if="@.isChecked">`
-- `<input>` with `type="file"` and `files`: `<input type="file" state-attr-files="@.filesToUpload">`
+- `<input>` with `type="file"` and `value`: `<input type="file" state-attr-value="@.filesToUpload">`
 - `<details>` and `open`: `<details state-attr-open-if="@.isOpen">[...]</details>`
 - any tag with the `contenteditable` attribute and `value`: `<div contenteditable state-attr-value="@.myEditable" >Edit me.../div>`
 
