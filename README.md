@@ -19,7 +19,7 @@ and should be **decoupled and separate from the View**.
 
 This concept stands in stark contrast to leading web development frameworks like:
 - *React* - Where the *View's layout* and *state* are tightly intertwined with the *Controller's logic* inside JSX components.
-- *Angular* - Where *View* and *Controller* separation exists, however *logic* may easily leak into the *View's layout* 
+- *Angular*, *Vue* - Where *View* and *Controller* separation exists, however *logic* may easily leak into the *View's layout* 
 through even simple directive expressions like `<div *ngIf="isLoaded && getDataItems() > 0"></div>`.
 
 #### The View State: a View - Controller Contract
