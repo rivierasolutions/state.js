@@ -13,7 +13,7 @@ may be sufficiently handled by existing frameworks (e.g. *Redux* for complex cas
 and are thus **out of scope of this framewrok**.
 
 #### The Passive View
-State.js introduces the concept of a **Passive View** - A *View* that defines it's **layout** and **state**, but **does not define any logic**.  
+State.js introduces the concept of a **Passive View** - A *View* defined only by it's **layout** and **state**, which specifically **does not define any logic**.  
 All **logic** that controls how the *state* or *layout* of the *View* is transformed throughout it's lifecycle is **delegated to the Controller**,
 and should be **decoupled and separate from the View**.
 
