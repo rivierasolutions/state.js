@@ -253,7 +253,8 @@ Event listeners are added to DOM elements based on the *keys* and *values* in th
 ```javascript
 DOMelement.addEventListener(key, value);
 ```
-If a value is updated to a new function reference, the previous event listener will be automatically removed by state.js.
+If a key-value pair is removed, or a value is updated to a different function reference,
+the previous event listener will be automatically removed by state.js.
 
 ### `state-attr-[name]="[JSONpath]"` (html attribute)
 
@@ -334,7 +335,7 @@ The state field at `[JSONpath]` is initialized to `false` if the DOM element con
 </p>
 ```
 
-### `<state></state>` (html tag)
+### `<state></state>` (html element)
 
 A transparent container for defining state attributes.
 
@@ -345,9 +346,67 @@ A transparent container for defining state attributes.
 </p>
 ```
 
-### `<state-compose tag="[tag]" src="[uri]"></state-compose>` (html tag)
+### `<state-compose tag="[tagName]" src="[uri]"></state-compose>` (html element)
 
-### `state-pass="[JSONPath]"` (html attribute)
+Declares that each custom HTML element `<[tagName]>` will be filled with the View defined at `[uri]`.  
+The `[uri]` may be a URL to an external HTML document, as well as an ID of a `<template>` element within 
+this HTML document.
+
+#### Example:
+```html
+<html>
+    <head>
+        <state-compose tag="app-my-element" src="my-element"></state-compose>
+        <state-compose tag="app-my-other-element" src="/compoonents/myOtherElement.html"></state-compose>
+    </head>
+    <body>
+        <app-my-elemment></app-my-elemment>
+
+        <app-my-other-elemment></app-my-other-elemment>
+
+        <template id="my-element">
+            <p state-content="@.componentStateContent">My own state!</p>
+        </template>
+    </body>
+</html>
+```
+
+#### Remarks
+
+A new *View State* will be created of each element `<[tagName]>` (see `[element].state.create(element)` for details).  
+While the created *View State* is independent from the parent View's state by default, it may be referenced 
+in the parent *View State* using the `state-pass` attributte (see `state-pass="[JSONpath]"` for details).  
+
+Cirular dependecies between Views declared with `state-compose` may cause infinite nesting (e.g. View *A* uses `state-compose` to include View *B*,
+which in turn uses `state-compose` to include View *A*). To protect against such scenarios, state.js defines the **maximum nesting depth = 20**,
+beyond which HTML elements with `state-compose` declaramtions will be ignored.
+
+### `state-pass="[JSONpath]"` (html attribute)
+
+When defined on a custom HTML element declared in `<state-compose>`, this attribute will reference this custom element's 
+*View State* in this View's state at `[JSONpath]`. This means that:
+- The entire *View State* of this custom HTML element will be included in the parent *View State* at `[JSONpath]`.
+- When the state field `[JSONpath]` is updated in the parent *View State*, those 
+updates will be propagated to this custom HTML element's *View State*
+- WHen this custom HTML element's *View State* is updated, those updates will be propagated to the parent View's *View State*.
+
+#### Example:
+```html
+<html>
+    <head>
+        <state-compose tag="app-my-element" src="/compoonents/myElement.html"></state-compose>
+    </head>
+    <body>
+        <h1 state-content="@.myHeader"></h1>
+
+        <app-my-elemment state-pass="@.myElementState"></app-my-elemment>
+    </body>
+</html>
+```
+
+#### Remarks
+
+See `<state-compose tag="[tagName]" src="[uri]"></state-compose>` for further details.
 
 ### `state-ignore` (html attribute)
 
