@@ -106,7 +106,7 @@ the initial **View State** of the *View* `index.html` is defined as:
 }
 ```
 Once the **View State** is fully loaded and the `StateLoaded` event if dispatched from the `window.document` object,
-the *Controller* index.controller.js may:
+the *Controller* `index.controller.js` may:
 - retrieve the current **View State** by calling `document.state.current()`
 - update the **View State** by calling `document.state.update(myNewState)`.
 
@@ -192,15 +192,21 @@ The DOM subtree of this placeholder element will subsequently be cloned after it
 
 JSONpaths starting with `@` (of any `state-` attributes inside the `state-foreach` element's DOM subtree)
 will be resolved relative to their respective array item, (i.e. their paths within the *View State* object will start at the array item).  
-To reference state fields beyond the array item, start the `state-` attribute's JSON path with `$`. This will always resolve the state attribute's value
-at the root of the *View State* object regardless of *scope* (see `state-scope=[JSONpath]` for more information).
+To reference state fields beyond the array item, start the `state-` attribute's JSON path with `$`. This will always resolve the state attribute's JSONpath
+relative to the root of the *View State* object regardless of *scope* (see `state-scope="[JSONpath]"` for more information).
 
 ##### Example:
 ```html
 <ul state-foreach="@.myList">
     <li>
-        <span state-content="@.listItem">Updated with document.state.currrent().myList[$index].listItem</span>
-        <span state-content="$.myText">Updated with document.state.current().myText</span>
+        <span state-content="@.listItemText">
+            Updated with document.state.currrent().myList[...].listItemText
+            (varies per item)
+        </span>
+        <span state-content="$.footer">
+            Updated with document.state.current().footer
+            (equal for all items)
+        </span>
     </li>
 </ul>
 ```
