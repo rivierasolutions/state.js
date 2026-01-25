@@ -107,6 +107,7 @@ Notice how:
 - The `state-if="@.showSubheader"` attribute enables adding or removing it's element from the DOM tree based on the truthiness of the `showSubheader` state field.
 - The `state-content="@.subHeaderMessage"` attribute enables displaying text content in it's parent element based on the value of the `subHeaderMessage` state field.
 - The `state-listen="@.onToggleSubheader"` attribute enables attaching DOM event listeners to it's parent element based on the keys and values of the `onToggleSubheader` state field.
+- The `<state>` tag allows defining `state-` attributes on text blocks without wrapping them in any other HTML tag.
 
 ## View API
 
