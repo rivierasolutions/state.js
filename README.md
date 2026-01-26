@@ -205,9 +205,9 @@ containing the `state-foreach` attribute in a `<tempalte state-foreach="[JSONpat
 tag at the same position in the DOM tree.  
 The DOM subtree of this placeholder element will subsequently be cloned after it for each element of the array at `[JSONpath]`.
 
-JSONpaths starting with `@` (of any `state-` attributes inside the `state-foreach` element's DOM subtree)
+JSONpaths starting with `@.` (of any `state-` attributes inside the `state-foreach` element's DOM subtree)
 will be resolved relative to their respective array item, (i.e. their paths within the *View State* object will start at the array item).  
-To reference state fields beyond the array item, start the `state-` attribute's JSON path with `$`. This will always resolve the state attribute's JSONpath
+To reference state fields beyond the array item, start the `state-` attribute's JSON path with `$.`. This will always resolve the state attribute's JSONpath
 relative to the root of the *View State* object regardless of *scope* (see `state-scope="[JSONpath]"` for more information).
 
 ##### Example:
@@ -377,7 +377,7 @@ A new *View State* will be created of each element `<[tagName]>` (see `[element]
 While the created *View State* is independent from the parent View's state by default, it may be referenced 
 in the parent *View State* using the `state-pass` attributte (see `state-pass="[JSONpath]"` for details).  
 
-`state-compose` elements may be defined anywhere in the View's layout (not necessarily in the <head> element).  
+`state-compose` elements may be defined anywhere in the View's layout (not necessarily in the `<head>` element).  
 When a `state-compose` element is defined multiple times for the same `[tagName]` in a View, the last 
 `state-compose` element is considered valid.
 
@@ -455,18 +455,209 @@ When the View's *layout* is analyzed to load the initial *View State*, state.js 
 
 ### `state-scope="[JSONpath]"` (html attribute)
 
+When this attribute is defined on an HTML element, JSONpaths of all `state-` attributes defined on this element and
+it's subtree starting with `@.` will be resolved as relative to `[JSONPath]`.  
+`[JSONpath]` is then defined as the *scope* of this element's DOM tree in the *View State*.  
+JSONpaths starting with `$.` will always be treated as 'absolute' paths, i.e. resolved relative to the root
+of the *View State* object.
+
+#### Example:
+```html
+<body>
+    <h1 state-content="@.header"></h1>
+    <div state-scope="@.myContent.myScope">
+
+        <h2 state-content="$.header"><h2>
+        <span state-content="@.text"></span>
+
+        <div state-scope="@.mySubScope">
+
+            <h2 state-content="$.header"><h2>
+            <span state-content="@.text"></span>
+        </div>
+    <div>
+</body>
+```
+```javascript
+document.addEventListener('StateLoaded', () => {
+
+    document.state.update({ 
+        header: 'Hello from all headers!',
+        myContent: {
+            myScope: {
+                text: 'Hello from a scope!',
+                mySubScope: {
+                    text: 'Hello from a sub-scope!'
+                }
+            }
+        }
+    });
+});
+```
+#### Remarks
+
+When DOM subtrees are inserted for items of an `Array` referenced in a `state-foreach` attribute, the root element
+of each subtree will automatically receive a `state-scope` attribute pointing it's respective array item.
+
+#### Example:
+View definition:
+```html
+<ul>
+    <li state-foreach="@.items">
+        <span state-content="@.$index"></span>:
+        <span state-content="@.text"></span>
+    </li>
+<ul>
+```
+Live View with applied *View State*:
+```html
+<ul>
+    <template state-foreach="@.items" state-placeholder>
+        <li>
+            <span state-content="@.$index"></span>:
+            <span state-content="@.text"></span>
+        </li>
+    </template>
+    <li state-scope="$.items[0]">
+        <span state-content="@.$index">0</span>:
+        <span state-content="@.text">Hello</span>
+    </li>
+    <li state-scope="$.items[1]">
+        <span state-content="@.$index">1</span>:
+        <span state-content="@.text">World</span>
+    </li>
+    <li state-scope="$.items[2]">
+        <span state-content="@.$index">2</span>:
+        <span state-content="@.text">From state.js!</span>
+    </li>
+<ul>
+```
+
 ### `state-placeholder` (html attribute)
+
+For internal use only. This attribute will be included in `<template>` elements added to the DOM by state.js
+to store temporary DOM subtrees (e.g. to support the functionality of `state-if` or `state-foreach` attributes).
 
 ## Controller API
 
 ### `[element].state` (DOM element property)
 
+The `state` object is the primary endpoint of state.js' Controller API. `state` objects are appended as properties
+to `Elements` in the View's (i.e. a HTML document's) DOM.  
+`state` objects allow the Controller to interact with a *View State* initialized and loaded for a given DOM subtree.  
+When state.js is succesfully loaded, a `state` object is guaranteed to be appended to the `window.document` property.
+This represents the root *View State* for the entire View.
+
+#### Example:
+```javascript
+document.addEventListener('StateLoaded', () => {
+
+    const initialState = document.state.current();
+
+    document.state.update({ header: 'Hello World' });
+});
+```
+
+#### Remarks
+
+The `state` object will also be appended to any elements for which `[element].state.create(element)` was called.
+See `[element].state.create(element)` for details.
+
 ### `[element].state.current()` (state object method)
+
+Returns the current *View State* as a readonly JSON object.
+
+#### Return Type
+
+`{ [key:string]: any }` - the current *View State*.
+
+#### Example:
+
+```javascript
+document.addEventListener('StateLoaded', () => {
+
+    const initialState = document.state.current();
+});
+```
+
+#### Remarks
+
+The `Object` returned by `document.state.current()` and all of it's properties are deep frozen using `Object.freeze()`.
 
 ### `[element].state.update(newState)` (state object method)
 
+Updates the current *View State* with either a partial `object` or an `Array` of JSONpaths and values.
+
+#### Arguments
+- `newState: { [key:string]:any } | [ { jsonPath: string, value: any } ]` - Either a partial `object` that will
+be merged into the current *View State*, or an `Array` of JSONpath's within the *View State* to modify,
+and their respective new values.
+
+#### Return type
+
+`Promise<void>` - The promise fulfills once the *View State* is completely updated.
+
+#### Example: 
+```javascript
+document.addEventListener('StateLoaded', async () => {
+
+    const initialState = document.state.current();
+
+    await document.state.update({ header: 'Hello World' });
+
+    document.state.update([
+        { jsonPath: '$.header', value: 'Hello Again!' }
+    ]);
+});
+```
+
 ### `[element].state.scopeOf(element)` (state object method)
 
+Return the nearest *scope* in the *View State* for a given DOM `Element` (see `state-scope="[JSONpath]"` for details).
+
+#### Arguments
+- `element: Element` - A DOM element from the current View.
+
+#### Return Type
+`any` - A readonly sub-object of the current *View State*, defined in a `state-scope` attribute closest
+to `element`, in the chain of `element`'s parents.  
+`[element].state.current()` (i.e. the whole *View State*) if there is no `state-scope` attribute in the chain of `element`'s parents.  
+`undefined` if `element` is not in the View's DOM tree.
+
+#### Example:
+```html
+<ul>
+    <li state-foreach="$.items">
+        <state state-content="@.text">Stub text</state>
+        <button state-listen="@.onRemoveButton" >Remove</button>
+    </li>
+<ul>
+```
+```javascript
+document.addEventListener('StateLoaded', async () => {
+
+    const items = [ 
+        { text: 'Hello', onRemoveButton: { 'click': removeItem } },
+        { text: 'World', onRemoveButton: { 'click': removeItem } }
+    ];
+
+    document.state.update({ items });
+
+    function removeItem(event) {
+        const index = document.state.scopeOf(event.traget).$index;
+
+        items.splice(index, 1);
+
+        document.state.update({ items });
+    }
+});
+```
+#### Remarks
+
+The `Object` returned by `[element].state.scopeOf(element)` and all of it's properties are deep frozen using `Object.freeze()`.
+
 ### `[element].state.create(element)` (state object method)
+
+
 
 ### `[element].state.contract(namespace, className, wrap)` (state object method)
