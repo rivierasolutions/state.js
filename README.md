@@ -558,7 +558,7 @@ to store temporary DOM subtrees (e.g. to support the functionality of `state-if`
 ---
 ### Are path expressions in state.js JSONPath?
 
-Though very similar as first glance, path expressions in state.js **are not** JSONPath expressions (as defined in [RFC 9539](https://www.rfc-editor.org/rfc/rfc953)).
+Though very similar as first glance, path expressions in state.js **are not** JSONPath expressions (as defined in [RFC 9539](https://www.rfc-editor.org/rfc/rfc9539)).
 Key differences include:
 - All path expressions in `state-` attributes must start with `$.` or `@.`.
 - The `@` selector is valid at the start of any path expression, and serves as the identifier of the current *scope's* root (see `state-scope="[path]"`).
@@ -576,7 +576,7 @@ Path expressions yielding multiple items (e.g. array ranges or filters) or remap
 introduce *logic* into the *View*, which is exactly what state.js is trying to prevent (see "The Passive View").
 
 While the `@` selector serves a similar purpose, it's JSONPath counterpart is defined as "valid only within filter selectors",
-hence it's use at the start of a JSONPath would be invalid in the context of [RFC 9539](https://www.rfc-editor.org/rfc/rfc953).  
+hence it's use at the start of a JSONPath would be invalid in the context of [RFC 9539](https://www.rfc-editor.org/rfc/rfc9539).  
 
 *Bracket notation* is only allowed for array indices for the sake of notation simplicity.
 
