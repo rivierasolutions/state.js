@@ -37,7 +37,7 @@ State.js introduces the **View State** - A JSON object defined in the *View*, th
 
 - Enables full decoupling of the View (HTML) from the Controller (javascript code) in web applications.
 - Introduces the *View State* - a Contract between the View and the Controller, stored within the DOM tree as a JSON object.
-- The *View State* is defined within the View (HTML), using JSONPath queries in special HTML attribures or HTML elements.
+- The *View State* is defined within the View (HTML), using sytnax similar to JSONpath queries in special HTML attribures or HTML elements.
 - The Controller (javascript code) may retrieve and update the *view state* at any time.
 - Supports web components
 - Features a *Visual Studio Code extension* to automatically generate .d.ts Contracts for HTML files (Views) 
@@ -100,7 +100,7 @@ document.addEventListener('StateLoaded', () => {
     }
 });
 ```
-Based on the JSONPath queries defined in the special HTML attributes `state-content`, `state-if`, `state-if-not` and `state-listen`,
+Based on the path definitions (similar to JSONpath queries) defined in the special HTML attributes `state-content`, `state-if`, `state-if-not` and `state-listen`,
 the initial **View State** of the *View* `index.html` is defined as:
 ```json
 {
@@ -133,10 +133,10 @@ In particular:
 
 ## View API
 
-### `state-content="[JSONpath]"` (html attribute)
+### `state-content="[path]"` (html attribute)
 
-Renders the value of the state field at `[JSONpath]` as this DOM element's text content.  
-The state field `[JSONpath]` is initialized to a `string` containing this DOM element's text content.
+Renders the value of the state field at `[path]` as this DOM element's text content.  
+The state field `[path]` is initialized to a `string` containing this DOM element's text content.
 
 #### Example:
 ```html
@@ -145,11 +145,11 @@ The state field `[JSONpath]` is initialized to a `string` containing this DOM el
 </p>
 ```
 
+---
+### `state-if="[path]"` (html attribute)
 
-### `state-if="[JSONpath]"` (html attribute)
-
-Removes this DOM element and it's subtree from the DOM if the state field at `[JSONpath]` evaluates to falsy.  
-The state field at `[JSONpath]` is initialized to `false`.
+Removes this DOM element and it's subtree from the DOM if the state field at `[path]` evaluates to falsy.  
+The state field at `[path]` is initialized to `false`.
 
 #### Example:
 ```html
@@ -160,14 +160,15 @@ The state field at `[JSONpath]` is initialized to `false`.
 
 #### Remarks
 
-When the state field at `[JSONpath]` evaluates to falsy, the DOM element and it's subtree is not deleted.  
-It is instead wrapped in a `<template state-if="[JSONpath]" state-placeholder></template>` element at the same position in the DOM tree.  
-Conversely, this placeholder element's content is unwrapped when `[JSONpath]` evaluates to truthy.
+When the state field at `[path]` evaluates to falsy, the DOM element and it's subtree is not deleted.  
+It is instead wrapped in a `<template state-if="[path]" state-placeholder></template>` element at the same position in the DOM tree.  
+Conversely, this placeholder element's content is unwrapped when `[path]` evaluates to truthy.
 
-### `state-if-not="[JSONpath]"` (html attribute)
+---
+### `state-if-not="[path]"` (html attribute)
 
-Removes this DOM element and it's subtree from the DOM if the state field at `[JSONpath]` evaluates to truthy.  
-The state field at `[JSONpath]` is initialized to `false`.
+Removes this DOM element and it's subtree from the DOM if the state field at `[path]` evaluates to truthy.  
+The state field at `[path]` is initialized to `false`.
 
 #### Example:
 ```html
@@ -178,15 +179,16 @@ The state field at `[JSONpath]` is initialized to `false`.
 
 #### Remarks
 
-When the state field at `[JSONpath]` evaluates to truthy, the DOM element and it's subtree is not deleted.  
-It is instead wrapped in a `<template state-if="[JSONpath]" state-placeholder></template>` element at the same position in the DOM tree.  
-Conversely, this placeholder element's content is unwrapped when `[JSONpath]` evaluates to falsy.
+When the state field at `[path]` evaluates to truthy, the DOM element and it's subtree is not deleted.  
+It is instead wrapped in a `<template state-if="[path]" state-placeholder></template>` element at the same position in the DOM tree.  
+Conversely, this placeholder element's content is unwrapped when `[path]` evaluates to falsy.
 
-### `state-foreach="[JSONpath]"` (html attribute)
+---
+### `state-foreach="[path]"` (html attribute)
 
-Renders this DOM element and it's subtree for each element of the array at the state field `[JSONpath]`.  
-If `[JSONpath]` is not an array but is truthy, it is treated as na array with 1 element.  
-The state field at `[JSONpath]` is initialized to an empty array `[]`.
+Renders this DOM element and it's subtree for each element of the array at the state field `[path]`.  
+If `[path]` is not an array but is truthy, it is treated as na array with 1 element.  
+The state field at `[path]` is initialized to an empty array `[]`.
 
 #### Example:
 ```html
@@ -201,14 +203,14 @@ The state field at `[JSONpath]` is initialized to an empty array `[]`.
 #### Remarks
 
 When the View's *layout* is analyzed to load the initial *View State*, state.js will wrap any DOM elements
-containing the `state-foreach` attribute in a `<tempalte state-foreach="[JSONpath]" state-placeholder>[...]</tempalte>`
+containing the `state-foreach` attribute in a `<tempalte state-foreach="[path]" state-placeholder>[...]</tempalte>`
 tag at the same position in the DOM tree.  
-The DOM subtree of this placeholder element will subsequently be cloned after it for each element of the array at `[JSONpath]`.
+The DOM subtree of this placeholder element will subsequently be cloned after it for each element of the array at `[path]`.
 
-JSONpaths starting with `@.` (of any `state-` attributes inside the `state-foreach` element's DOM subtree)
+Paths starting with `@.` (of any `state-` attributes inside the `state-foreach` element's DOM subtree)
 will be resolved relative to their respective array item, (i.e. their paths within the *View State* object will start at the array item).  
-To reference state fields beyond the array item, start the `state-` attribute's JSON path with `$.`. This will always resolve the state attribute's JSONpath
-relative to the root of the *View State* object regardless of *scope* (see `state-scope="[JSONpath]"` for more information).
+To reference state fields beyond the array item, start the `state-` attribute's path with `$.`. This will always resolve the state attribute's path
+relative to the root of the *View State* object regardless of *scope* (see `state-scope="[path]"` for more information).
 
 ##### Example:
 ```html
@@ -226,12 +228,13 @@ relative to the root of the *View State* object regardless of *scope* (see `stat
 </ul>
 ```
 
-The special `$index` field, containing the array item's current index will be appended to each array item of state field `[JSONpath]`.
+The special `$index` field, containing the array item's current index will be appended to each array item of state field `[path]`.
 
-### `state-listen="[JSONpath]"` (html attribute)
+---
+### `state-listen="[path]"` (html attribute)
 
-Attaches DOM Event listeners defined in the state field `[JSONpath]` to this DOM element.  
-The `[JSONpath]` state field is assumed to be an `Object` containing keys defined as DOM event names,
+Attaches DOM Event listeners defined in the state field `[path]` to this DOM element.  
+The `[path]` state field is assumed to be an `Object` containing keys defined as DOM event names,
 and values defined as references to javascript `functions` that will be triggered on the respective DOM event.
 
 #### Example:
@@ -249,17 +252,18 @@ document.state.update({
 
 #### Remarks
 
-Event listeners are added to DOM elements based on the *keys* and *values* in the `[JSONpath]` state field `Object` using:
+Event listeners are added to DOM elements based on the *keys* and *values* in the `[path]` state field `Object` using:
 ```javascript
 DOMelement.addEventListener(key, value);
 ```
 If a key-value pair is removed, or a value is updated to a different function reference,
 the previous event listener will be automatically removed by state.js.
 
-### `state-attr-[name]="[JSONpath]"` (html attribute)
+---
+### `state-attr-[name]="[path]"` (html attribute)
 
-Set's the value of attribute `[name]` on this DOM element to the value of the state field at `[JSONpath]`.  
-The state field at `[JSONpath]` is initialized the value of attribute `[name]` on this DOM element.
+Set's the value of attribute `[name]` on this DOM element to the value of the state field at `[path]`.  
+The state field at `[path]` is initialized the value of attribute `[name]` on this DOM element.
 
 #### Example:
 ```html
@@ -280,30 +284,33 @@ for the following HTML element - attribute pairs:
 - `<details>` and `open`: `<details state-attr-open-if="@.isOpen">[...]</details>`
 - any tag with the `contenteditable` attribute and `value`: `<div contenteditable state-attr-value="@.myEditable" >Edit me.../div>`
 
-### `state-attr-[name]-if="[JSONpath]"` (html attribute)
+---
+### `state-attr-[name]-if="[path]"` (html attribute)
 
-Add the attribute `[name]` to this DOM element if the value of the state field at `[JSONpath]` is truthy. Remove the attribute otherwise.  
-The state field at `[JSONpath]` is initialized to `false`.
+Add the attribute `[name]` to this DOM element if the value of the state field at `[path]` is truthy. Remove the attribute otherwise.  
+The state field at `[path]` is initialized to `false`.
 
 #### Example:
 ```html
 <input name="myCheckbox" type="checkbox" state-attr-checked-if="@.isChecked">
 ```
 
-### `state-attr-[name]-if-not="[JSONpath]"` (html attribute)
+---
+### `state-attr-[name]-if-not="[path]"` (html attribute)
 
-Add the attribute `[name]` to this DOM element if the value of the state field at `[JSONpath]` is falsy. Remove the attribute otherwise.  
-The state field at `[JSONpath]` is initialized to `false`.
+Add the attribute `[name]` to this DOM element if the value of the state field at `[path]` is falsy. Remove the attribute otherwise.  
+The state field at `[path]` is initialized to `false`.
 
 #### Example:
 ```html
 <input name="myCheckbox" type="checkbox" state-attr-checked-if-not="@.notChecked">
 ```
 
-### `state-class-[name]-if="[JSONpath]"` (html attribute)
+---
+### `state-class-[name]-if="[path]"` (html attribute)
 
-Add the CSS class `[name]` to this DOM elements `class` attribute if the value of the state field at `[JSONpath]` is truthy. Remove the CSS class otherwise.
-The state field at `[JSONpath]` is initialized to `true` if the DOM element contains CSS class `[name]`, `false` otherwise.
+Add the CSS class `[name]` to this DOM elements `class` attribute if the value of the state field at `[path]` is truthy. Remove the CSS class otherwise.
+The state field at `[path]` is initialized to `true` if the DOM element contains CSS class `[name]`, `false` otherwise.
 
 #### Example:
 ```html
@@ -312,9 +319,10 @@ The state field at `[JSONpath]` is initialized to `true` if the DOM element cont
 </p>
 ```
 
-### `state-class-[name]="[JSONpath]"` (html attribute)
+---
+### `state-class-[name]="[path]"` (html attribute)
 
-Alias of `state-class-[name]-if="[JSONpath]"`.
+Alias of `state-class-[name]-if="[path]"`.
 
 #### Example:
 ```html
@@ -323,10 +331,11 @@ Alias of `state-class-[name]-if="[JSONpath]"`.
 </p>
 ```
 
-### `state-class-[name]-if-not="[JSONpath]"` (html attribute)
+---
+### `state-class-[name]-if-not="[path]"` (html attribute)
 
-Add the CSS class `[name]` to this DOM elements `class` attribute if the value of the state field at `[JSONpath]` is falsy. Remove the CSS class otherwise.
-The state field at `[JSONpath]` is initialized to `false` if the DOM element contains CSS class `[name]`, `true` otherwise.
+Add the CSS class `[name]` to this DOM elements `class` attribute if the value of the state field at `[path]` is falsy. Remove the CSS class otherwise.
+The state field at `[path]` is initialized to `false` if the DOM element contains CSS class `[name]`, `true` otherwise.
 
 #### Example:
 ```html
@@ -335,6 +344,7 @@ The state field at `[JSONpath]` is initialized to `false` if the DOM element con
 </p>
 ```
 
+---
 ### `<state></state>` (html element)
 
 A transparent container for defining state attributes.
@@ -346,6 +356,7 @@ A transparent container for defining state attributes.
 </p>
 ```
 
+---
 ### `<state-compose tag="[tagName]" src="[uri]"></state-compose>` (html element)
 
 Declares that each custom HTML element `<[tagName]>` will be filled with the View defined at `[uri]`.  
@@ -375,7 +386,7 @@ this HTML document.
 
 A new *View State* will be created of each element `<[tagName]>` (see `[element].state.create(element)` for details).  
 While the created *View State* is independent from the parent View's state by default, it may be referenced 
-in the parent *View State* using the `state-pass` attributte (see `state-pass="[JSONpath]"` for details).  
+in the parent *View State* using the `state-pass` attributte (see `state-pass="[path]"` for details).  
 
 `state-compose` elements may be defined anywhere in the View's layout (not necessarily in the `<head>` element).  
 When a `state-compose` element is defined multiple times for the same `[tagName]` in a View, the last 
@@ -385,12 +396,13 @@ Cirular dependecies between Views declared with `state-compose` may cause infini
 which in turn uses `state-compose` to include View *A*). To protect against such scenarios, state.js defines the **maximum nesting depth = 20**,
 beyond which HTML elements with `state-compose` declarations will be ignored.
 
-### `state-pass="[JSONpath]"` (html attribute)
+---
+### `state-pass="[path]"` (html attribute)
 
 When defined on a custom HTML element declared in `<state-compose>`, this attribute will reference this custom element's 
-*View State* in this View's state at `[JSONpath]`. This means that:
-- The entire *View State* of this custom HTML element will be included in the parent *View State* at `[JSONpath]`.
-- When the state field `[JSONpath]` is updated in the parent *View State*, those 
+*View State* in this View's state at `[path]`. This means that:
+- The entire *View State* of this custom HTML element will be included in the parent *View State* at `[path]`.
+- When the state field `[path]` is updated in the parent *View State*, those 
 updates will be propagated to this custom HTML element's *View State*
 - WHen this custom HTML element's *View State* is updated, those updates will be propagated to the parent View's *View State*.
 
@@ -438,6 +450,7 @@ const state = document.state.current();
 
 See `<state-compose tag="[tagName]" src="[uri]"></state-compose>` for further details.
 
+---
 ### `state-ignore` (html attribute)
 
 When the View's *layout* is analyzed to load the initial *View State*, state.js will not analyze this DOM element or it's subtree.
@@ -453,13 +466,16 @@ When the View's *layout* is analyzed to load the initial *View State*, state.js 
 </div>
 ```
 
-### `state-scope="[JSONpath]"` (html attribute)
+---
+### `state-scope="[path]"` (html attribute)
 
-When this attribute is defined on an HTML element, JSONpaths of all `state-` attributes defined on this element and
-it's subtree starting with `@.` will be resolved as relative to `[JSONPath]`.  
-`[JSONpath]` is then defined as the *scope* of this element's DOM tree in the *View State*.  
-JSONpaths starting with `$.` will always be treated as 'absolute' paths, i.e. resolved relative to the root
-of the *View State* object.
+When this attribute is defined on an HTML element, paths of all `state-` attributes defined on this element and
+it's subtree starting with `@.` will be resolved as relative to `[path]`.  
+`[path]` is then defined as the *scope* of this element's DOM tree in the *View State*.  
+Paths starting with `$.` will always be treated as 'absolute' paths, i.e. resolved relative to the root
+of the *View State* object.  
+A Path starting with `@.` that does not have a `state-scope` attribute on any of it's parent elements 
+will be resolved as if it would start with `$.` (i.e. relative to the root of the *View State* object).
 
 #### Example:
 ```html
@@ -472,8 +488,8 @@ of the *View State* object.
 
         <div state-scope="@.mySubScope">
 
-            <h2 state-content="$.header"><h2>
-            <span state-content="@.text"></span>
+            <h3 state-content="$.header"><h3>
+            <span state-content="@.subtext"></span>
         </div>
     <div>
 </body>
@@ -487,7 +503,7 @@ document.addEventListener('StateLoaded', () => {
             myScope: {
                 text: 'Hello from a scope!',
                 mySubScope: {
-                    text: 'Hello from a sub-scope!'
+                    subtext: 'Hello from a sub-scope!'
                 }
             }
         }
@@ -497,7 +513,7 @@ document.addEventListener('StateLoaded', () => {
 #### Remarks
 
 When DOM subtrees are inserted for items of an `Array` referenced in a `state-foreach` attribute, the root element
-of each subtree will automatically receive a `state-scope` attribute pointing it's respective array item.
+of each subtree will automatically receive a `state-scope` attribute with a path pointing it's respective array item.
 
 #### Example:
 View definition:
@@ -533,10 +549,36 @@ Live View with applied *View State*:
 <ul>
 ```
 
+---
 ### `state-placeholder` (html attribute)
 
 For internal use only. This attribute will be included in `<template>` elements added to the DOM by state.js
 to store temporary DOM subtrees (e.g. to support the functionality of `state-if` or `state-foreach` attributes).
+
+---
+### Are path expressions in state.js JSONPath?
+
+Though very similar as first glance, path expressions in state.js **are not** JSONPath expressions (as defined in [RFC 9539](https://www.rfc-editor.org/rfc/rfc953)).
+Key differences include:
+- All path expressions in `state-` attributes must start with `$.` or `@.`.
+- The `@` selector is valid at the start of any path expression, and serves as the identifier of the current *scope's* root (see `state-scope="[path]"`).
+- All path expressions in `state-` attributes must resolve with a single object or value. This means that:
+    - Array ranges `$.list[2:3]` and selections `$.list[2,3,4]` **are not allowed**.
+    - Array filters of any kind `$.customer[?(@.age > 18)]` **are not allowed**.
+    - The "all children" operator `$.parentNode.*` **is not allowed**.
+    - The "all children named..." operator `$..anyChildNode` **is not allowed**.
+- Output mapping `$.[].{Name:name, Age:age, Hobbies:details.hobbies}` in `state-` attributes **is not allowed**.
+- Segments may only use *bracket notation* for array indices (i.e. `$['store']['book'][0]['title']` **is not allowed**, use `$.store.book[0].title` instead).
+
+#### Remarks
+
+Path expressions yielding multiple items (e.g. array ranges or filters) or remapping the output would 
+introduce *logic* into the *View*, which is exactly what state.js is trying to prevent (see "The Passive View").
+
+While the `@` selector serves a similar purpose, it's JSONPath counterpart is defined as "valid only within filter selectors",
+hence it's use at the start of a JSONPath would be invalid in the context of [RFC 9539](https://www.rfc-editor.org/rfc/rfc953).  
+
+*Bracket notation* is only allowed for array indices for the sake of notation simplicity.
 
 ## Controller API
 
@@ -586,11 +628,11 @@ The `Object` returned by `document.state.current()` and all of it's properties a
 
 ### `[element].state.update(newState)` (state object method)
 
-Updates the current *View State* with either a partial `object` or an `Array` of JSONpaths and values.
+Updates the current *View State* with either a partial `object` or an `Array` of paths and values.
 
 #### Arguments
-- `newState: { [key:string]:any } | [ { jsonPath: string, value: any } ]` - Either a partial `object` that will
-be merged into the current *View State*, or an `Array` of JSONpath's within the *View State* to modify,
+- `newState: { [key:string]:any } | [ { path: string, value: any } ]` - Either a partial `object` that will
+be merged into the current *View State*, or an `Array` of path's within the *View State* to modify,
 and their respective new values.
 
 #### Return type
@@ -606,14 +648,14 @@ document.addEventListener('StateLoaded', async () => {
     await document.state.update({ header: 'Hello World' });
 
     document.state.update([
-        { jsonPath: '$.header', value: 'Hello Again!' }
+        { path: '$.header', value: 'Hello Again!' }
     ]);
 });
 ```
 
 ### `[element].state.scopeOf(element)` (state object method)
 
-Return the nearest *scope* in the *View State* for a given DOM `Element` (see `state-scope="[JSONpath]"` for details).
+Return the nearest *scope* in the *View State* for a given DOM `Element` (see `state-scope="[path]"` for details).
 
 #### Arguments
 - `element: Element` - A DOM element from the current View.
