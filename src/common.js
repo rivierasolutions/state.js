@@ -111,7 +111,7 @@ function loadView(state, element, absPath) {
         return Promise.reject(`Failed to load view for ${element.tagName}.`);
     }
     if (state._depth >= document.state._maxDepth) {
-        return Promise.reject(`Cannot load view ${templatePath} for ${element.tagName}. Maximum state nesting depth exceeded.`)
+        return Promise.reject(`Cannot load view for ${element.tagName}. Maximum state nesting depth exceeded.`)
     }
     return state._composeTags.get(element.tagName)
         .then(html => {
@@ -129,7 +129,7 @@ function loadView(state, element, absPath) {
                 newState._depth = state._depth + 1;
                 element.dispatchEvent(new CustomEvent("StateComposed", {
                     bubbles: true,
-                    detail: { view: templatePath, state: newState }
+                    detail: { state: newState }
                 }));
             } else {
                 return undefined;
