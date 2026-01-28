@@ -1,4 +1,3 @@
-import { getJSONPath } from './common';
 import { buildContract, wrapContract } from "./contractBuilder";
 import { mergeChanges } from './jsonMerger';
 import { buildState } from "./stateBuilder";
