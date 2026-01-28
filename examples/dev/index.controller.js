@@ -7,10 +7,10 @@ document.addEventListener('StateLoaded', () => {
     let subState = document.state;
 
     subState.listener({
-        'removeItem': removeItem,
-        'buttonClicked': buttonClicked,
-        'buttonClicked2': buttonClicked2,
-        'onToggleList': onToggleList
+        removeItem,
+        buttonClicked,
+        buttonClicked2,
+        onToggleList
     });
 
     subState.update({ 

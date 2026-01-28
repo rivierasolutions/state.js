@@ -11,14 +11,14 @@
 		const todos = _deserialize(localStorage.getItem('todos')) ?? [];
 
 		document.state.listener({
-			'onNewTodoInput': onNewTodoInput,
-			'onToggleAll': onToggleAll,
-			'onClearCompleted': onClearCompleted,
-			'onItemToggle': onItemToggle,
-			'onItemRemove': onItemRemove,
-			'onItemEdit': onItemEdit,
-			'onItemEditInput': onItemEditInput,
-			'onItemBlur': onItemBlur
+			onNewTodoInput,
+			onToggleAll,
+			onClearCompleted,
+			onItemToggle,
+			onItemRemove,
+			onItemEdit,
+			onItemEditInput,
+			onItemBlur
 		});
 
 		_updateViewState({
