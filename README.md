@@ -732,7 +732,7 @@ document.addEventListener('StateLoaded', async () => {
         return { 
             id
             text,
-            onUpdateButton: { 'click': 'updateItem', context: { id } }
+            onUpdateButton: { 'click': 'updateItem', context: { id } },
             onRemoveButton: { 'click': 'removeItem', context: { id } }
         };
     }
