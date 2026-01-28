@@ -88,11 +88,13 @@ And a coupled Controller `index.controller.js`...
 ```js
 document.addEventListener('StateLoaded', () => {
 
+    document.state.listener('toggleSubheader': toggleSubheader);
+
     document.state.update({
         headerMessage: 'Hello World',
         showSubheader: true,
         subHeaderMessage: 'from state.js',
-        onToggleSubheader: { 'click': toggleSubheader }
+        onToggleSubheader: { 'click': 'toggleSubheader' }
     });
 
     function toggleSubheader(event) {
@@ -121,7 +123,7 @@ Notice how upon the first `document.state.update(...)` call, the **View State** 
     "headerMessage": "Hello World",
     "showSubheader": true,
     "subHeaderMessage": "from state.js",
-    "onToggleSubheader": { "click": toggleSubheader }
+    "onToggleSubheader": { "click": "toggleSubheader" }
 }
 ```
 State.js automatically propagates the updated **View State** across the View's layout.  
@@ -234,27 +236,40 @@ The special `$index` field, containing the array item's current index will be ap
 ### `state-listen="[path]"` (html attribute)
 
 Attaches DOM Event listeners defined in the state field `[path]` to this DOM element.  
-The `[path]` state field is assumed to be an `Object` containing keys defined as DOM event names,
-and values defined as references to javascript `functions` that will be triggered on the respective DOM event.
+This provides any *Controller* attached to this *View* a way to interact with this element's input.
 
 #### Example:
 ```html
 <button state-listen="@.onButtonEvents">My Button</button>
 ```
 ```javascript
+document.state.listener({
+    'onClick': (event, context) => console.log(`Clicked button: ${context.id}`),
+    'onHover': (event, context) => console.log(`Hovered over button: ${context.id}`)
+});
+
 document.state.update({
     onButtonEvents: { 
-        'click': (event) => console.log(`Clicked button: ${event.target.innerText}`),
-        'mouseover': (event) => console.log(`Hovered over button: ${event.target.innerText}`)
+        'click': 'onClick',
+        'mouseover': 'onHover',
+        context: { id: 'My-Wonderfull-Button' }
     }
 });
 ```
 
 #### Remarks
 
+The `[path]` state field is assumed to be an `Object` containing keys defined as DOM event names,
+and values defined as names of javascript `functions` that will be triggered on the respective DOM event.  
+All functions used in `[path]` field must first have their names declared using the `[element].state.listener()`
+method (see `[element].state.listener(nameOrDict, fn)` for details).
+
+The special `context` field of the `[path]` state field will be passed as the 2nd argument of the called 
+listener `function` (the 1st argument being the DOM event itself).
+
 Event listeners are added to DOM elements based on the *keys* and *values* in the `[path]` state field `Object` using:
 ```javascript
-DOMelement.addEventListener(key, value);
+DOMelement.addEventListener(key, getListenerByName(value));
 ```
 If a key-value pair is removed, or a value is updated to a different function reference,
 the previous event listener will be automatically removed by state.js.
@@ -469,8 +484,8 @@ When the View's *layout* is analyzed to load the initial *View State*, state.js 
 ---
 ### `state-scope="[path]"` (html attribute)
 
-When this attribute is defined on an HTML element, paths of all `state-` attributes defined on this element and
-it's subtree starting with `@.` will be resolved as relative to `[path]`.  
+For internal use only. When this attribute is defined on an HTML element, paths of all `state-` attributes defined
+on this element and it's subtree starting with `@.` will be resolved as relative to `[path]`.  
 `[path]` is then defined as the *scope* of this element's DOM tree in the *View State*.  
 Paths starting with `$.` will always be treated as 'absolute' paths, i.e. resolved relative to the root
 of the *View State* object.  
@@ -605,6 +620,7 @@ document.addEventListener('StateLoaded', () => {
 The `state` object will also be appended to any elements for which `[element].state.create(element)` was called.
 See `[element].state.create(element)` for details.
 
+---
 ### `[element].state.current()` (state object method)
 
 Returns the current *View State* as a readonly JSON object.
@@ -626,6 +642,7 @@ document.addEventListener('StateLoaded', () => {
 
 The `Object` returned by `document.state.current()` and all of it's properties are deep frozen using `Object.freeze()`.
 
+---
 ### `[element].state.update(newState)` (state object method)
 
 Updates the current *View State* with either a partial `object` or an `Array` of paths and values.
@@ -652,52 +669,91 @@ document.addEventListener('StateLoaded', async () => {
     ]);
 });
 ```
+### `[element].state.listener(nameOrDict, fn)` (state object method)
 
-### `[element].state.scopeOf(element)` (state object method)
-
-Return the nearest *scope* in the *View State* for a given DOM `Element` (see `state-scope="[path]"` for details).
+Register a new listener function (or a collection of functions) for use with `state-listen` attributes.
 
 #### Arguments
-- `element: Element` - A DOM element from the current View.
+- `nameOrDict: string|{ [key:string]: Function }` - When set to a `string`, defines the name of `fn`. 
+When set to an `Object`, defines a dictionary of `functions` to register (values) and thier names (keys).
+- `fn: Function|undefined` - Defines the `function` to register under `nameOrDict` (when set to a `string`).
+Ignored if `nameOrDict` is set to an `Object`.
 
 #### Return Type
-`any` - A readonly sub-object of the current *View State*, defined in a `state-scope` attribute closest
-to `element`, in the chain of `element`'s parents.  
-`[element].state.current()` (i.e. the whole *View State*) if there is no `state-scope` attribute in the chain of `element`'s parents.  
-`undefined` if `element` is not in the View's DOM tree.
+`void`
 
 #### Example:
 ```html
+<button state-listen="$.onAddButton">Add Item</button>
 <ul>
     <li state-foreach="$.items">
         <state state-content="@.text">Stub text</state>
-        <button state-listen="@.onRemoveButton" >Remove</button>
+        <button state-listen="@.onUpdateButton">Update</button>
+        <button state-listen="@.onRemoveButton">Remove</button>
     </li>
 <ul>
 ```
 ```javascript
 document.addEventListener('StateLoaded', async () => {
 
-    const items = [ 
-        { text: 'Hello', onRemoveButton: { 'click': removeItem } },
-        { text: 'World', onRemoveButton: { 'click': removeItem } }
-    ];
+    document.state.listener('removeItem', removeItem);
 
-    document.state.update({ items });
+    document.state.listener({
+        addItem,
+        updateItem
+    });
 
-    function removeItem(event) {
-        const index = document.state.scopeOf(event.traget).$index;
+    let itemIdSequence = 0;
+    const items = [  _newItem('Hello'), _newItem('World') ];
 
-        items.splice(index, 1);
+    document.state.update({ items, onAddButton: { 'click': 'addItem' } });
 
+    function addItem(event, context) {
+        items.push(_newItem('Added Item'));
         document.state.update({ items });
+    }
+
+    function removeItem(event, context) {
+        const index = items.findIndex(i => i.id === context.id);
+        items.splice(index, 1);
+        document.state.update({ items });
+    }
+
+    function updateItem(event, context) {
+        const item = items.find(i => i.id === context.id);
+        item.text = 'Updated Item';
+        document.state.update({ items });
+    }
+
+    function _newItem(text) {
+        const id = ++itemIdSequence;
+        return { 
+            id
+            text,
+            onUpdateButton: { 'click': 'updateItem', context: { id } }
+            onRemoveButton: { 'click': 'removeItem', context: { id } }
+        };
     }
 });
 ```
+
 #### Remarks
 
-The `Object` returned by `[element].state.scopeOf(element)` and all of it's properties are deep frozen using `Object.freeze()`.
+The `state-listen` attribute assumes the updated value to be an `Object` containing keys defined as DOM event names,
+and values defined as names of javascript `functions` that will be triggered on the respective DOM event.  
+All functions passed to `state-listen` attributes must first have their names declared using `[element].state.listener(nameOrDict, fn)`
 
+The special `context` field of the `Object` passed to `state-listen` attributes will be passed as the 2nd argument of the called 
+listener `function` (the 1st argument being the dispatched DOM event).
+
+Event listeners are added to DOM elements based on the *keys* and *values* in the `[path]` state field `Object` using:
+```javascript
+DOMelement.addEventListener(key, getListenerByName(value));
+```
+If a key-value pair is removed, or a value is updated to a different function reference,
+the previous event listener will be automatically removed by state.js.
+
+---
 ### `[element].state.create(element)` (state object method)
 
 
