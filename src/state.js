@@ -50,18 +50,6 @@ async function updateStateTree(rootElement, newState) {
                     rootElement.state._listeners.set(nameOrDict, (ev) => fn(ev, ev.target.context));
                 }
             },
-            scopeOf(element) {
-                if (!rootElement.contains(element)) {
-                    return undefined;
-                }
-                while (element != rootElement) {
-                    if (element.hasAttribute("state-scope")) {
-                        return getJSONPath(this._current, element.getAttribute("state-scope"));
-                    }
-                    element = element.parentElement;
-                }
-                return this._current;
-            },
             update: function(newState) {
                 return updateStateTree(rootElement, newState);
             },
