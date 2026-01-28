@@ -669,6 +669,8 @@ document.addEventListener('StateLoaded', async () => {
     ]);
 });
 ```
+
+---
 ### `[element].state.listener(nameOrDict, fn)` (state object method)
 
 Register a new listener function (or a collection of functions) for use with `state-listen` attributes.
