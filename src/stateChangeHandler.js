@@ -1,11 +1,14 @@
 import { loadView, bindToValueAttr, bindToOpenAttr, setValueOrOpenAttr, getJSONPath, unregisterBinding, registerBinding, placeholderFactory } from "./common";
 
-function bindToStateListenAttr(element, previousStateValue, stateValue) {
+function bindToStateListenAttr(state, element, previousStateValue, stateValue) {
     Object.keys(previousStateValue ?? {}).forEach(k => {
-        element.removeEventListener(k, previousStateValue[k]);
+        element.removeEventListener(k, state._listeners.get(previousStateValue[k]));
     });
-    Object.keys(stateValue ?? {}).forEach(k => {
-        element.addEventListener(k, stateValue[k]);
+    if (stateValue && stateValue.context && stateValue.context !== element.context) {
+        element.context = stateValue.context;
+    }
+    Object.keys(stateValue ?? {}).filter(k => k !== 'context').forEach(k => {
+        element.addEventListener(k, state._listeners.get(stateValue[k]));
     });
 }
 
@@ -193,7 +196,7 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
         }
     }
     else if (stateType === 'state-listen') {
-        bindToStateListenAttr(element, src, dst ?? stateValue);
+        bindToStateListenAttr(state, element, src, dst ?? stateValue);
     }
     else if (stateType === 'state-pass' && stateValue) {
         componentUpdates.set(element, (componentUpdates.get(element) ?? Promise.resolve()).then(() => [element,absPath,stateValue]));

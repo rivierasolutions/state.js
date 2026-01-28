@@ -104,7 +104,7 @@ function buildObjectChanges(path, src, dst, res, toMerge, changeIndex, onNotEqua
     changeIndex.push(objectChanges);
     Object.keys(dst).forEach((key) => {
         if (isObjectOrArray(dst[key])) {
-            res[key] = Array.isArray(dst[key]) ? [...(dst[key])] : { ...src[key], ...dst[key] };
+            res[key] = Array.isArray(dst[key]) ? [...(dst[key])] : { ...(src ? src[key] : {}), ...dst[key] };
         }
         toMerge.push({
             path: `${path}.${key}`,

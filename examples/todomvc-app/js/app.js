@@ -5,14 +5,26 @@
 
 	window.document.addEventListener('StateLoaded', () => {
 
+		let itemIdSequence = 0;
+		let present = 'all';
 		const viewState = document.state;
 		const todos = _deserialize(localStorage.getItem('todos')) ?? [];
-		let present = 'all';
+
+		document.state.listener({
+			'onNewTodoInput': onNewTodoInput,
+			'onToggleAll': onToggleAll,
+			'onClearCompleted': onClearCompleted,
+			'onItemToggle': onItemToggle,
+			'onItemRemove': onItemRemove,
+			'onItemEdit': onItemEdit,
+			'onItemEditInput': onItemEditInput,
+			'onItemBlur': onItemBlur
+		});
 
 		_updateViewState({
-			onNewTodoInput: { 'keydown': onNewTodoInput },
-			onToggleAll: { 'click': onToggleAll },
-			onClearCompleted: { 'click': onClearCompleted },
+			onNewTodoInput: { 'keydown': 'onNewTodoInput' },
+			onToggleAll: { 'click': 'onToggleAll' },
+			onClearCompleted: { 'click': 'onClearCompleted' },
 			lastToggleAll: false
 		});
 
@@ -44,47 +56,48 @@
 			_updateViewState();
 		}
 
-		function onItemToggle(ev) {
-			const item = todos[viewState.scopeOf(ev.target).$index];
+		function onItemToggle(ev, context) {
+			const item = todos.find(i => i.id === context.id);
 			item.isCompleted = !item.isCompleted;
 			item.cssClass = item.isCompleted ? 'completed' : '';
 			_updateViewState();
 		}
 
-		function onItemRemove(ev) {
-			const index = viewState.scopeOf(ev.target).$index;
-			todos.splice(index, 1);
+		function onItemRemove(ev, context) {
+			todos.splice(todos.findIndex(i => i.id === context.id), 1);
 			_updateViewState();
 		}
 
-		function onItemEdit(ev) {
-			todos[viewState.scopeOf(ev.target).$index].isEdited = true; 
+		function onItemEdit(ev, context) {
+			todos[todos.findIndex(i => i.id === context.id)].isEdited = true; 
 			_updateViewState();
 		}
 
-		function onItemEditInput(ev) {
-			const index = viewState.scopeOf(ev.target).$index;
+		function onItemEditInput(ev, context) {
+			const index = todos.findIndex(i => i.id === context.id);
 			if (ev.code === 'Enter' && todos[index].isEdited) {
 				_itemEditDone(index);
 			}
 		}
 
-		function onItemBlur(ev) {
-			const index = viewState.scopeOf(ev.target).$index;
+		function onItemBlur(ev, context) {
+			const index = todos.findIndex(i => i.id === context.id);
 			if (todos[index].isEdited) {
 				_itemEditDone(index);
 			}
 		}
 
 		function _newItem(content, isCompleted = false) {
-			return { 
+			const id = ++itemIdSequence;
+			return {
+				id,
 				content,
 				isCompleted,
 				isEdited: false,
-				onToggle: { 'click': onItemToggle },
-				onRemove: { 'click': onItemRemove },
-				onEdit: { 'dblclick': onItemEdit },
-				onEditInput: { 'keydown': onItemEditInput, 'blur': onItemBlur }
+				onToggle: { 'click': 'onItemToggle', context: { id } },
+				onRemove: { 'click': 'onItemRemove', context: { id } },
+				onEdit: { 'dblclick': 'onItemEdit', context: { id } },
+				onEditInput: { 'keydown': 'onItemEditInput', 'blur': 'onItemBlur', context: { id } }
 			};
 		}
 

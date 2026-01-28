@@ -3,17 +3,24 @@
 document.addEventListener('StateLoaded', () => {
 
     let number = 0;
-
+    let itemIdSequence = 0;
     let subState = document.state;
+
+    subState.listener({
+        'removeItem': removeItem,
+        'buttonClicked': buttonClicked,
+        'buttonClicked2': buttonClicked2,
+        'onToggleList': onToggleList
+    });
 
     subState.update({ 
         stateArray: [ 
-            { text: 'aaa', numberArray: [{ number: 111 }], onRemove: { 'click': removeItem } },
-            { text: 'bbb', numberArray: [{ number: 222, numberClass: 'red' }], onRemove: { 'click': removeItem } }
+            { text: 'aaa', numberArray: [{ number: 111 }], onRemove: { 'click': 'removeItem', context: { id: ++itemIdSequence } } },
+            { text: 'bbb', numberArray: [{ number: 222, numberClass: 'red' }], onRemove: { 'click': 'removeItem', context: { id: ++itemIdSequence } } }
         ],
         showList: true,
-        onButtonClick: { 'click': buttonClicked },
-        onToggleList: { 'click': onToggleList }
+        onButtonClick: { 'click': 'buttonClicked' },
+        onToggleList: { 'click': 'onToggleList' }
     });
 
     let contract = subState.contract();
@@ -24,7 +31,7 @@ document.addEventListener('StateLoaded', () => {
             stateArray: subState.current().stateArray.concat([ { 
                 text: 'added',
                 numberArray: [{ number: 303, numberClass: 'red' }, { number: 404 }],
-                onRemove: { 'click': removeItem },
+                onRemove: { 'click': 'removeItem', context: { id: ++itemIdSequence } },
                 component: { componentContent: `created at: ${new Date().toISOString()}` },
             }])
         });
@@ -36,7 +43,7 @@ document.addEventListener('StateLoaded', () => {
             stateArray: subState.current().stateArray.concat([ { 
                 text: 'added',
                 numberArray: [{ number: 303, numberClass: 'red' }, { number: 404 }],
-                onRemove: { 'click': removeItem },
+                onRemove: { 'click': 'removeItem', context: { id: ++itemIdSequence } },
                 component: { componentContent: `created at: ${new Date().toISOString()}` },
             }])
         });
@@ -46,14 +53,13 @@ document.addEventListener('StateLoaded', () => {
         subState.update({ showList: !subState.current().showList });
     }
 
-    function removeItem(event) {
-        const toRemove = subState.scopeOf(event.target).$index;
-        subState.update({ stateArray: subState.current().stateArray.filter((o,i) => i !== toRemove) });
+    function removeItem(event, context) {
+        subState.update({ stateArray: subState.current().stateArray.filter((o) => o.onRemove.context.id !== context.id) });
     }
 
     setInterval(() => subState.update({ 
         showMVC2: !subState.current().showMVC2,
-        onButtonClick: { 'click': subState.current().showMVC2 ? buttonClicked : buttonClicked2 },
+        onButtonClick: { 'click': subState.current().showMVC2 ? 'buttonClicked' : 'buttonClicked2' },
         myComponentState: { componentContent: new Date().toISOString() }
     }), 2000);
 

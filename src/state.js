@@ -43,6 +43,13 @@ async function updateStateTree(rootElement, newState) {
             current: function() {
                 return this._current;
             },
+            listener: function(nameOrDict, fn) {
+                if (typeof nameOrDict !== 'string' && fn === undefined) {
+                    Object.keys(nameOrDict).forEach(k => rootElement.state._listeners.set(k,  (ev) => nameOrDict[k](ev, ev.target.context)))
+                } else {
+                    rootElement.state._listeners.set(nameOrDict, (ev) => fn(ev, ev.target.context));
+                }
+            },
             scopeOf(element) {
                 if (!rootElement.contains(element)) {
                     return undefined;
@@ -81,6 +88,7 @@ async function updateStateTree(rootElement, newState) {
         rootElement.state._stateForeachComposeTags = new Map();
         rootElement.state._stateForeachScopes = new Map();
         rootElement.state._depth = 0;
+        rootElement.state._listeners = new Map();
         if (rootElement === document) {
             rootElement.state._maxDepth = 20;
         }
