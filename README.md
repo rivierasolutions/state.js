@@ -481,6 +481,25 @@ When the View's *layout* is analyzed to load the initial *View State*, state.js 
 </div>
 ```
 
+#### Remarks
+
+To completely disable loading any state for the whole HTML document, place a `state-ignore` attribute on the `<html>` element.  
+Note that the `StateLoaded` DOM event will still be dispatched, and the `document.state` object will still be available,
+but the initial state will be an empty object `{}`, any `state-` attributes in the document will be ignored by this **View State**,
+and any calls to `document.state.update(newState)` will have no effect.
+#### Example:
+```html
+<html state-ignore>
+    <body>
+        No initial View State.
+    </body>
+</html>
+```
+
+Note that even if the *View State* for the whole HTMl document is ignored using `<html state-ignore>`, you may still
+create new *View States* for DOM subtrees within the document using `document.state.create()`
+(see `[element].state.create(element)` for details). 
+
 ---
 ### `state-scope="[path]"` (html attribute)
 
@@ -758,6 +777,32 @@ the previous event listener will be automatically removed by state.js.
 ---
 ### `[element].state.create(element)` (state object method)
 
+Creates and loads a new *View State* on the DOM element `element`.  
+The new *View State* is completely independent from it's parent *View State*, features
+it's own methods (`element.state.current()`, `element.state.update()` etc.) and dispatches it's own DOM events.
+
+#### Arguments
+- `element: Element` - the DOM element for which the new *View State* will be created and loaded.
+
+### Return Type
+
+`Promise<ViewState>` - A promise that fulfills to the new *View State* object once the new *View State* is loaded.
+
+#### Remarks
+
+Once the new *View State* is loaded, the `StateLoaded` DOM event is dispatched from `element`.  
+`element` will then contain a state object field `element.state`.
+
+Even though the new *View State* may be referenced by it's "parent" state via the `state-pass` attribute,
+the two states remain fundamentally independent, i.e. will only interact with each other  via the state.js API, i.e.
+- The parent state will retrieve the new *View State* via it's `state.current()` method.
+- The parent state will update the new *View State* via it's `state.update(...)` method.
+- An update to the new *View State* (by other means than the parent state's `state-pass` attribute) will trigger a call to
+`state.update(...)` in the parent state.
 
 
+When `[parent].state.create(element)` is called, the *View State* will be created and loaded,
+even if `element` has a `state-ignore` attribute.
+
+---
 ### `[element].state.contract(namespace, className, wrap)` (state object method)
