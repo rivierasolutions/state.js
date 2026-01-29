@@ -872,3 +872,7 @@ Dispatched from a custom HTML element after a *View State* has been automaticall
 For a *View State* to be automatically created, the custom HTML element must be first declared
 via a `<state-compose>` element (see `<state-compose tag="[tag]" src="[uri]">` for details).  
 This event **bubbles** up the DOM tree.
+
+## About
+
+State.js was created by Piotr Wójcik (piotrwojcik84@gmail.com)
