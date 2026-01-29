@@ -695,9 +695,9 @@ document.addEventListener('StateLoaded', async () => {
 Register a new listener function (or a collection of functions) for use with `state-listen` attributes.
 
 #### Arguments
-- `nameOrDict: string|{ [key:string]: Function }` - When set to a `string`, defines the name of `fn`. 
+- `nameOrDict: string|{ [key:string]: (event: Event, context: any) => void }` - When set to a `string`, defines the name of `fn`. 
 When set to an `Object`, defines a dictionary of `functions` to register (values) and thier names (keys).
-- `fn: Function|undefined` - Defines the `function` to register under `nameOrDict` (when set to a `string`).
+- `fn: ((event: Event, context: any) => void)|undefined` - Defines the `function` to register under `nameOrDict` (when set to a `string`).
 Ignored if `nameOrDict` is set to an `Object`.
 
 #### Return Type
@@ -789,8 +789,24 @@ it's own methods (`element.state.current()`, `element.state.update()` etc.) and 
 `Promise<ViewState>` - A promise that fulfills to the new *View State* object once the new *View State* is loaded.
 
 #### Example:
+```html
+<html state-ignore>
+    <body>
+        <div id="container">
+            <h1 state-content="@.header"></h1>
+        </div>
+    <body>
+</html>
+```
 ```javascript
-console.log(TODO);
+document.addEventListener('StateLoaded', async () => {
+
+    const myContainer = document.getElementById("container");
+
+    await document.state.create(myContainer);
+
+    myContainer.state.update({ header: 'Hello World' });
+});
 ```
 
 #### Remarks
@@ -799,7 +815,7 @@ Once the new *View State* is loaded, the `StateLoaded` DOM event is dispatched f
 `element` will then contain a state object field `element.state`.
 
 Even though the new *View State* may be referenced by it's "parent" state via the `state-pass` attribute,
-the two states remain fundamentally independent, i.e. will only interact with each other  via the state.js API, i.e.
+the two states remain fundamentally independent, and will only interact with each other via the state.js API, i.e.
 - The parent state will retrieve the new *View State* via it's `state.current()` method.
 - The parent state will update the new *View State* via it's `state.update(...)` method.
 - An update to the new *View State* (by other means than the parent state's `state-pass` attribute) will trigger a call to
@@ -811,3 +827,45 @@ even if `element` has a `state-ignore` attribute.
 
 ---
 ### `[element].state.contract(namespace, className, wrap)` (state object method)
+
+Generates a .d.ts contract for this *View State* based on the `state-` attributes defined in the View.  
+The *View State* will be represented as an `interface` with all state fields (and their fields etc.) defined
+as properties with their respective types.
+
+#### Arguments
+- `namepsace: string|undefined` - The namespace in which the *View State* interface will be defined. Defaults to `StateJs.Generated`.
+- `className: string|undefined` - The name of the *View State* interface. Defaults to `ViewState`.
+- `wrap: boolean|undefined` - When set to false the *View State* interface will be generated without it's wrapping namespace
+and supporting classes. Defaults to `true`.
+
+#### Return Type
+`string` - The .d.ts contact containing the *View State* interface.
+
+#### Remarks
+
+State attributes will resolve to the following types in the *View State* contract:
+- `state-content`: `any`
+- `state-if`, `state-if-not`: `any`
+- `state-attr-[name]`, `state-attr-[name]-if`, `state-attr-[name]-if-not`: `any`
+- `state-class-[name]`, `state-class-[name]-if`, `state-class-[name]-if-not`: `any`
+- `state-pass`: `any`
+- `state-foreach`: `Array<ForeachItem>` (`ForeachItem` will be defined as a separate `interface`).
+- `state-listen`: `{ [key:string]: string } & { context: any }`
+
+### `StateLoaded` (DOM Event)
+
+Dispatched from a DOM element on which a *View State* is created, after the state has been created and finished loading.  
+Always dispatched from the `document` element after state.js has finished loading.  
+This event **does not bubble** up the DOM tree.
+
+### `StateUpdated` (DOM Event)
+
+Dispatched from a DOM element containing a *View State*, after that *View State* has finished updating.  
+This event **bubbles** up the DOM tree.
+
+### `StateComposed` (DOM Event)
+
+Dispatched from a custom HTML element after a *View State* has been automatically created for it.  
+For a *View State* to be automatically created, the custom HTML element must be first declared
+via a `<state-compose>` element (see `<state-compose tag="[tag]" src="[uri]">` for details).  
+This event **bubbles** up the DOM tree.
