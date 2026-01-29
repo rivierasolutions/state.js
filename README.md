@@ -784,9 +784,14 @@ it's own methods (`element.state.current()`, `element.state.update()` etc.) and 
 #### Arguments
 - `element: Element` - the DOM element for which the new *View State* will be created and loaded.
 
-### Return Type
+#### Return Type
 
 `Promise<ViewState>` - A promise that fulfills to the new *View State* object once the new *View State* is loaded.
+
+#### Example:
+```javascript
+console.log(TODO);
+```
 
 #### Remarks
 
