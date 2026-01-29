@@ -852,17 +852,20 @@ State attributes will resolve to the following types in the *View State* contrac
 - `state-foreach`: `Array<ForeachItem>` (`ForeachItem` will be defined as a separate `interface`).
 - `state-listen`: `{ [key:string]: string } & { context: any }`
 
+---
 ### `StateLoaded` (DOM Event)
 
 Dispatched from a DOM element on which a *View State* is created, after the state has been created and finished loading.  
 Always dispatched from the `document` element after state.js has finished loading.  
 This event **does not bubble** up the DOM tree.
 
+---
 ### `StateUpdated` (DOM Event)
 
 Dispatched from a DOM element containing a *View State*, after that *View State* has finished updating.  
 This event **bubbles** up the DOM tree.
 
+---
 ### `StateComposed` (DOM Event)
 
 Dispatched from a custom HTML element after a *View State* has been automatically created for it.  
