@@ -8,7 +8,7 @@ export const fetchInitialDataMock = createAsyncThunk('counter/fetch', async () =
     return data ? JSON.parse(data) : { value: 0, lastUpdated: null };
 });
 
-export const updateCounterOnServerMock = createAsyncThunk('counter/update', async (newValue) => {
+const updateCounterOnServerMock = createAsyncThunk('counter/update', async (newValue) => {
     await delay(500);
     const result = {
         value: newValue,
@@ -17,6 +17,24 @@ export const updateCounterOnServerMock = createAsyncThunk('counter/update', asyn
     localStorage.setItem('app_counter_data', JSON.stringify(result));
     return result;
 });
+
+export const incrementAndSaveMock = createAsyncThunk(
+    'counter/incrementAndSave',
+    async (_, { getState, dispatch }) => {
+        const currentValue = getState().counter.value;
+        const newValue = currentValue + 1;
+        
+        return dispatch(updateCounterOnServerMock(newValue)).unwrap();
+    }
+);
+
+export const decrementAndSaveMock = createAsyncThunk(
+    'counter/decrementAndSave',
+    async (_, { getState, dispatch }) => {
+        const currentValue = getState().counter.value;
+        return dispatch(updateCounterOnServerMock(currentValue - 1)).unwrap();
+    }
+);
 
 const counterSlice = createSlice({
   name: 'counter',

@@ -1,10 +1,10 @@
-import { store, fetchInitialDataMock, updateCounterOnServerMock, selectCounterViewState } from './store.js';
+import { store, fetchInitialDataMock, incrementAndSaveMock, decrementAndSaveMock, selectCounterViewState } from './store.js';
 
 document.addEventListener('StateLoaded', () => {
 
     document.state.listener({
-        handleIncrement: () => store.dispatch(updateCounterOnServerMock((store.getState().counter.value) + 1)),
-        handleDecrement: () => store.dispatch(updateCounterOnServerMock((store.getState().counter.value) - 1)),
+        handleIncrement: () => store.dispatch(incrementAndSaveMock()),
+        handleDecrement: () => store.dispatch(decrementAndSaveMock()),
     });
 
     document.state.update({
