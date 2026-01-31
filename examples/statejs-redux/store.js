@@ -71,8 +71,6 @@ export const selectCounterViewState = createSelector(
     })
 );
 
-export const { increment, decrement, reset } = counterSlice.actions;
-
 export const store = configureStore({
   reducer: {
     counter: counterSlice.reducer
