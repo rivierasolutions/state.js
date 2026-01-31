@@ -15,10 +15,14 @@
 <body>
     <div id="counter-app">
         <h1>Counter: <state state-content="@.countDisplay">0</state></h1>
-        <p>Last change: <state state-content="@.timestamp">Never</state></p>
+        <progress state-if="@.isLoading"></progress>
+        <p>Last change:
+            <state state-content="@.timestamp"></state>
+            <state state-if-not="@.timestamp">Never</state>
+        </p>
         
-        <button state-listen="@.onIncrement"> + </button>
-        <button state-listen="@.onDecrement"> - </button>
+        <button state-listen="@.onIncrement" state-attr-disabled-if="@.isLoading"> + </button>
+        <button state-listen="@.onDecrement" state-attr-disabled-if="@.isLoading"> - </button>
     </div>
 </body>
 </html>

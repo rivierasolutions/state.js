@@ -1,4 +1,22 @@
-import { configureStore, createSlice, createSelector } from '@reduxjs/toolkit';
+import { configureStore, createSlice, createSelector, createAsyncThunk } from '@reduxjs/toolkit';
+
+const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+export const fetchInitialDataMock = createAsyncThunk('counter/fetch', async () => {
+    await delay(500);
+    const data = localStorage.getItem('app_counter_data');
+    return data ? JSON.parse(data) : { value: 0, lastUpdated: null };
+});
+
+export const updateCounterOnServerMock = createAsyncThunk('counter/update', async (newValue) => {
+    await delay(500);
+    const result = {
+        value: newValue,
+        lastUpdated: new Date().toLocaleTimeString()
+    };
+    localStorage.setItem('app_counter_data', JSON.stringify(result));
+    return result;
+});
 
 const counterSlice = createSlice({
   name: 'counter',
@@ -7,18 +25,20 @@ const counterSlice = createSlice({
     status: 'idle',
     lastUpdated: null
   },
-  reducers: {
-    increment: (state) => {
-      state.value += 1;
-      state.lastUpdated = new Date().toLocaleTimeString();
-    },
-    decrement: (state) => {
-      state.value -= 1;
-      state.lastUpdated = new Date().toLocaleTimeString();
-    },
-    reset: (state) => {
-      state.value = 0;
-    }
+  extraReducers: (builder) => {
+    builder
+        .addCase(fetchInitialDataMock.pending, (state) => { state.status = 'loading'; })
+        .addCase(fetchInitialDataMock.fulfilled, (state,action) => { 
+            state.status = 'idle'; 
+            state.value = action.payload.value;
+            state.lastUpdated = action.payload.lastUpdated;
+        })
+        .addCase(updateCounterOnServerMock.pending, (state) => { state.status = 'updating'; })
+        .addCase(updateCounterOnServerMock.fulfilled, (state,action) => {
+            state.status = 'idle';
+            state.value = action.payload.value;
+            state.lastUpdated = action.payload.lastUpdated;
+        });
   }
 });
 
@@ -28,7 +48,8 @@ export const selectCounterViewState = createSelector(
     [selectCounterBase],
     (counter) => ({
         countDisplay: counter.value,
-        timestamp: counter.lastUpdated
+        timestamp: counter.lastUpdated,
+        isLoading: counter.status !== 'idle'
     })
 );
 
