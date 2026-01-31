@@ -1,11 +1,26 @@
 {
+  "name": "state.js",
+  "version": "1.0.0",
+  "description": "A Passive View MVC framework for modern web applications.",
+  "main": "dist/state.min.js",
+  "module": "dist/state.esm.js",
+  "keywords": [
+    "mvc",
+    "framework",
+    "passive-view",
+    "view-state",
+    "state-management",
+    "html-contract"
+  ],
+  "author": "Piotr Wójcik",
+  "license": "MIT",
   "devDependencies": {
     "esbuild": "^0.27.2",
     "http-server": "^14.1.1"
   },
   "scripts": {
     "serve": "http-server -p 5500 -c-1",
-    "build": "esbuild src/state.js --bundle --minify --sourcemap --outfile=dist/state.min.js",
+    "build": "esbuild src/state.js --bundle --minify --sourcemap --outfile=dist/state.min.js && esbuild src/state.js --bundle --format=esm --outfile=dist/state.esm.js",
     "watch": "esbuild src/state.js --bundle --outfile=dist/state.min.js --watch"
   }
 }
