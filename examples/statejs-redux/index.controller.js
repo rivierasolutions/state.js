@@ -13,6 +13,6 @@ document.addEventListener('StateLoaded', () => {
     });
 
     store.subscribe(() => {
-        document.state.update(selectCounterViewState(store.getState()))
+        document.state.update(selectCounterViewState(store.getState()));
     });
 });
