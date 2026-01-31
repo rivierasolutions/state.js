@@ -186,7 +186,7 @@ The state field at `[path]` is initialized to `false`.
 #### Example:
 ```html
 <p state-if-not="@.loading">
-    <div state-content=@.loadedContent></div>
+    <div state-content="@.loadedContent"></div>
 </p>
 ```
 
