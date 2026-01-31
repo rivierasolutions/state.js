@@ -200,7 +200,7 @@ Conversely, this placeholder element's content is unwrapped when `[path]` evalua
 ### `state-foreach="[path]"` (html attribute)
 
 Renders this DOM element and it's subtree for each element of the array at the state field `[path]`.  
-If `[path]` is not an array but is truthy, it is treated as na array with 1 element.  
+If `[path]` is not an array but is truthy, it is treated as an array with 1 element.  
 The state field at `[path]` is initialized to an empty array `[]`.
 
 #### Example:
