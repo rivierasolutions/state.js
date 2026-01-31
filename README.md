@@ -59,6 +59,17 @@ Or include the minified version directly in your *View's* layout:
 <script src="https://cdn.todo.com/statejs/lts/state.min.js" defer></script>
 ```
 
+### Running the examples
+
+1. Clone, install & serve (on port 5500)
+```bash
+git clone https://github.com/rivierasolutions/state.js.git
+cd state.js
+npm install
+npm run serve
+```
+2. Navigate to e.g. `http://localhost:5500/examples/helloWorld/index.html` in your favourite browser.
+
 ## Usage
 
 Consider a basic View `index.html`...
