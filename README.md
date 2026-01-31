@@ -99,16 +99,16 @@ And a coupled Controller `index.controller.js`...
 ```js
 document.addEventListener('StateLoaded', () => {
 
-    document.state.listener('toggleSubheader': toggleSubheader);
+    document.state.listener('toggle', toggleSubheader);
 
     document.state.update({
         headerMessage: 'Hello World',
         showSubheader: true,
         subHeaderMessage: 'from state.js',
-        onToggleSubheader: { 'click': 'toggleSubheader' }
+        onToggleSubheader: { 'click': 'toggle' }
     });
 
-    function toggleSubheader(event) {
+    function toggleSubheader(event, context) {
         document.state.update({ showSubheader: !document.state.current().showSubheader }); 
     }
 });
