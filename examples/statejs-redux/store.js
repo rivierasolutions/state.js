@@ -1,4 +1,4 @@
-import { configureStore, createSlice } from '@reduxjs/toolkit';
+import { configureStore, createSlice, createSelector } from '@reduxjs/toolkit';
 
 const counterSlice = createSlice({
   name: 'counter',
@@ -21,6 +21,16 @@ const counterSlice = createSlice({
     }
   }
 });
+
+const selectCounterBase = (state) => state.counter;
+
+export const selectCounterViewState = createSelector(
+    [selectCounterBase],
+    (counter) => ({
+        countDisplay: counter.value,
+        timestamp: counter.lastUpdated
+    })
+);
 
 export const { increment, decrement, reset } = counterSlice.actions;
 
