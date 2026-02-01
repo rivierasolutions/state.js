@@ -1,5 +1,5 @@
 {
-  "name": "state.js",
+  "name": "@rivierasolutions/state.js",
   "version": "1.0.0",
   "description": "A Passive View MVC framework for modern web applications.",
   "main": "dist/state.min.js",
@@ -11,6 +11,12 @@
     "view-state",
     "state-management",
     "html-contract"
+  ],
+  "files": [
+    "dist/",
+    "types/",
+    "README.md",
+    "LICENSE.txt"
   ],
   "author": "Piotr Wójcik",
   "license": "MIT",

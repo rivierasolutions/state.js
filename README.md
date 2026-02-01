@@ -50,7 +50,7 @@ a coupled Controller for interactive, Controllerless View design (also compatibl
 Install throught npm
 
 ```bash
-npm install statejs
+npm install @rivierasolutions/state.js
 ```
 
 Or include the minified version directly in your *View's* layout:
