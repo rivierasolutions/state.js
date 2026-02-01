@@ -56,7 +56,7 @@ npm install @rivierasolutions/state.js
 Or include the minified version directly in your *View's* layout:
 
 ```html
-<script src="https://cdn.todo.com/statejs/lts/state.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/gh/rivierasolutions/state.js@latest/dist/state.min.js" defer></script>
 ```
 
 ### Running the examples
@@ -79,7 +79,7 @@ Consider a basic View `index.html`...
 <html lang="en">
     <head>
         <title>Hello state.js</title>
-        <script src="https://cdn.todo.com/statejs/lts/state.min.js" defer></script>
+        <script src="https://cdn.jsdelivr.net/gh/rivierasolutions/state.js@latest/dist/state.min.js" defer></script>
         <script src="index.controller.js" defer></script>
     </head>
     <body>
