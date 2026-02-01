@@ -1,6 +1,10 @@
 {
   "name": "@rivierasolutions/state.js",
   "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rivierasolutions/state.js.git"
+  },
   "description": "A Passive View MVC framework for modern web applications.",
   "main": "dist/state.min.js",
   "module": "dist/state.esm.js",
