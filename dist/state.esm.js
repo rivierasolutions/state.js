@@ -73,18 +73,18 @@ function bindToValueAttr(element, absPath, state) {
   if (element.tagName === "SELECT") {
     element.addEventListener("change", (event) => state.update([{ jsonPath: absPath, value: event.target.value }]));
   } else if (element.getAttribute("contenteditable") === "true") {
-    element.addEventListener("input", (event) => state.update([{ jsonPath: absPath, value: event.target.textContent }]));
+    element.addEventListener("input", (event) => state.update([{ jsonPath: absPath, value: event.target.textContent }], `state-attr-value="${absPath}"`));
   } else if (element.tagName === "INPUT" && (element.getAttribute("type") === "checkbox" || element.getAttribute("type") === "radio")) {
-    element.addEventListener("change", (event) => state.update([{ jsonPath: absPath, value: event.target.checked }]));
+    element.addEventListener("change", (event) => state.update([{ jsonPath: absPath, value: event.target.checked }], `state-attr-value="${absPath}"`));
   } else if (element.tagName === "INPUT" && element.getAttribute("type") === "file") {
-    element.addEventListener("change", (event) => state.update([{ jsonPath: absPath, value: event.target.files }]));
+    element.addEventListener("change", (event) => state.update([{ jsonPath: absPath, value: event.target.files }], `state-attr-value="${absPath}"`));
   } else if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
-    element.addEventListener("input", (event) => state.update([{ jsonPath: absPath, value: event.target.value }]));
+    element.addEventListener("input", (event) => state.update([{ jsonPath: absPath, value: event.target.value }], `state-attr-value="${absPath}"`));
   }
 }
 function bindToOpenAttr(element, absPath, state) {
   if (element.tagName === "DETAILS") {
-    element.addEventListener("toggle", (event) => state.update([{ jsonPath: absPath, value: event.target.open }]));
+    element.addEventListener("toggle", (event) => state.update([{ jsonPath: absPath, value: event.target.open }], `state-attr-open="${absPath}"`));
   }
 }
 function setValueOrOpenAttr(element, attrName, stateValue) {
@@ -779,18 +779,18 @@ function applyState(state, changes, componentLoads) {
 }
 
 // src/state.js
-async function updateStateTree(rootElement, newState) {
-  const statesToUpdate = [{ root: rootElement, update: newState, componentUpdates: void 0 }];
+async function updateStateTree(rootElement, newState, origin) {
+  const statesToUpdate = [{ root: rootElement, update: newState, componentUpdates: void 0, origin }];
   while (statesToUpdate.length) {
     const next = statesToUpdate.pop();
     if (next.componentUpdates) {
       mergeChanges(next.root.state, next.componentUpdates.map(([el, absPath, update]) => ({ jsonPath: absPath, value: el.state.current() })));
-      next.root.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
+      next.root.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true, detail: { origin: next.origin } }));
     } else {
       const componentUpdates = (await applyState(next.root.state, mergeChanges(next.root.state, next.update))).filter(([el, absPath, update]) => update !== void 0 && el.state);
+      statesToUpdate.push({ root: next.root, update: void 0, componentUpdates, origin: next.origin });
       if (componentUpdates.length) {
-        statesToUpdate.push({ root: next.root, update: void 0, componentUpdates });
-        statesToUpdate.push(...componentUpdates.map(([root, absPath, update]) => ({ root, update, componentUpdates: void 0 })));
+        statesToUpdate.push(...componentUpdates.map(([root, absPath, update]) => ({ root, update, componentUpdates: void 0, origin: `state-pass-down="${absPath}"` })));
       }
     }
   }
@@ -802,7 +802,7 @@ async function updateStateTree(rootElement, newState) {
       continue;
     }
     mergeChanges(parent.state, [{ jsonPath: child.state._parentStateAbsPath, value: child.state.current() }]);
-    parent.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true }));
+    parent.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true, detail: { origin: `state-pass-up="${child.state._parentStateAbsPath}"` } }));
     if (parent.state?._parentStateRoot) {
       parentsToUpdate.push(parent);
     }
@@ -821,8 +821,8 @@ async function updateStateTree(rootElement, newState) {
           rootElement.state._listeners.set(nameOrDict, (ev) => fn(ev, ev.target.context));
         }
       },
-      update: function(newState) {
-        return updateStateTree(rootElement, newState);
+      update: function(newState, origin = "controller") {
+        return updateStateTree(rootElement, newState, origin);
       },
       apply: function() {
         applyState(this);

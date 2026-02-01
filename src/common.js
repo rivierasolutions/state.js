@@ -77,22 +77,22 @@ function bindToValueAttr(element, absPath, state) {
         element.addEventListener('change', (event) => state.update([{ jsonPath: absPath, value: event.target.value }]));
     }
     else if (element.getAttribute('contenteditable') === 'true') {
-        element.addEventListener('input', (event) => state.update([{ jsonPath: absPath, value: event.target.textContent }]));
+        element.addEventListener('input', (event) => state.update([{ jsonPath: absPath, value: event.target.textContent }], `state-attr-value="${absPath}"`));
     }
     else if (element.tagName === 'INPUT' && (element.getAttribute('type') === 'checkbox' || element.getAttribute('type') === 'radio')) {
-        element.addEventListener('change', (event) => state.update([{ jsonPath: absPath, value: event.target.checked }]));
+        element.addEventListener('change', (event) => state.update([{ jsonPath: absPath, value: event.target.checked }], `state-attr-value="${absPath}"`));
     }
     else if (element.tagName === 'INPUT' && element.getAttribute('type') === 'file') {
-        element.addEventListener('change', (event) => state.update([{ jsonPath: absPath, value: event.target.files }]));
+        element.addEventListener('change', (event) => state.update([{ jsonPath: absPath, value: event.target.files }], `state-attr-value="${absPath}"`));
     }
     else if ((element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' )) {
-        element.addEventListener('input', (event) => state.update([{ jsonPath: absPath, value: event.target.value }]));
+        element.addEventListener('input', (event) => state.update([{ jsonPath: absPath, value: event.target.value }], `state-attr-value="${absPath}"`));
     }
 }
 
 function bindToOpenAttr(element, absPath, state) {
     if (element.tagName === 'DETAILS') {
-        element.addEventListener('toggle', (event) => state.update([{ jsonPath: absPath, value: event.target.open }]));
+        element.addEventListener('toggle', (event) => state.update([{ jsonPath: absPath, value: event.target.open }], `state-attr-open="${absPath}"`));
     }
 }
 

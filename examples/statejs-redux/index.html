@@ -13,7 +13,7 @@
     <script type="module" src="index.controller.js" defer></script>
 </head>
 <body>
-    <div id="counter-app">
+    <div>
         <h1>Counter: <state state-content="@.countDisplay">0</state></h1>
         <progress state-if="@.isLoading"></progress>
         <p>Last change:
@@ -23,6 +23,8 @@
         
         <button state-listen="@.onIncrement" state-attr-disabled-if="@.isLoading"> + </button>
         <button state-listen="@.onDecrement" state-attr-disabled-if="@.isLoading"> - </button>
+        <br>
+        <label>comment: </label><input type="text" state-attr-value="@.comment" state-attr-disabled-if="@.isLoading">
     </div>
 </body>
 </html>
