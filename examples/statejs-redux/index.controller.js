@@ -1,5 +1,21 @@
 import { store, fetchInitialDataMock, incrementAndSaveMock, decrementAndSaveMock, selectCounterViewState, updateCounterViewState } from './store.js';
 
+function connect(viewStateRoot, store, selector, updater, updatesOrigin) {
+    let lastStoreState = null;
+    store.subscribe(() => {
+        const nextState = selector(store.getState());
+        if (nextState !== lastStoreState) {
+            viewStateRoot.state.update(nextState, updatesOrigin);
+        }
+    });
+
+    viewStateRoot.addEventListener('StateUpdated', (event) => {
+        if (event.detail?.origin !== updatesOrigin) {
+            store.dispatch(updater(document.state.current()));
+        }
+    });
+}
+
 document.addEventListener('StateLoaded', () => {
 
     document.state.listener({
@@ -12,15 +28,7 @@ document.addEventListener('StateLoaded', () => {
         onDecrement: { 'click': 'handleDecrement' }
     }, 'counter-controller');
 
-    store.subscribe(() => {
-        document.state.update(selectCounterViewState(store.getState()), 'counter-controller');
-    });
-
-    document.addEventListener('StateUpdated', (event) => {
-        if (event.detail?.origin !== 'counter-controller') {
-            store.dispatch(updateCounterViewState(document.state.current()));
-        }
-    });
+    connect(document, store, selectCounterViewState, updateCounterViewState, 'counter-controller');
 
     store.dispatch(fetchInitialDataMock());
 });
