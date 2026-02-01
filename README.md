@@ -673,7 +673,7 @@ document.addEventListener('StateLoaded', () => {
 The `Object` returned by `document.state.current()` and all of it's properties are deep frozen using `Object.freeze()`.
 
 ---
-### `[element].state.update(newState)` (state object method)
+### `[element].state.update(newState, origin)` (state object method)
 
 Updates the current *View State* with either a partial `object` or an `Array` of paths and values.
 
@@ -681,6 +681,8 @@ Updates the current *View State* with either a partial `object` or an `Array` of
 - `newState: { [key:string]:any } | [ { path: string, value: any } ]` - Either a partial `object` that will
 be merged into the current *View State*, or an `Array` of path's within the *View State* to modify,
 and their respective new values.
+- `origin: string|undefined` - This value will be passed in the detail of the `StateUpdated` event after this
+update has completed. Default value is `"controller"`.
 
 #### Return type
 
@@ -699,6 +701,14 @@ document.addEventListener('StateLoaded', async () => {
     ]);
 });
 ```
+
+#### Remarks
+- Updates caused by special `state-attr-[name]="[path]"` attributes, (e.g. `<input state-attr-value="@.myInput">` element updating it's `value`
+property) will have the `origin` set to `state-attr-[name]="[path]"`
+- Updates caused by a `state-pass="[path]"` attribute propagating a *View State* update form a parent down to a composed child will
+have the `origin` set to `state-pass-down="[path]"`
+- Updates caused by a `state-pass="[path]"` attribute propagating a *View State* update form a composed child up to a parent will
+have the `origin` set to `state-pass-up="[path]"`
 
 ---
 ### `[element].state.listener(nameOrDict, fn)` (state object method)
@@ -875,6 +885,9 @@ This event **does not bubble** up the DOM tree.
 
 Dispatched from a DOM element containing a *View State*, after that *View State* has finished updating.  
 This event **bubbles** up the DOM tree.
+
+The event's detail will contain an object `{ origin: string|undefined }` with the value of the `origin`
+argument passed to the `state.update()` call that resulted in this event.
 
 ---
 ### `StateComposed` (DOM Event)
