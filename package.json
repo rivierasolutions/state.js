@@ -26,11 +26,14 @@
   "license": "MIT",
   "devDependencies": {
     "esbuild": "^0.27.2",
-    "http-server": "^14.1.1"
+    "local-web-server": "^5.4.0"
   },
   "scripts": {
-    "serve": "http-server -p 5500 -c-1",
-    "build": "esbuild src/state.js --bundle --minify --sourcemap --outfile=dist/state.min.js && esbuild src/state.js --bundle --format=esm --outfile=dist/state.esm.js",
-    "watch": "esbuild src/state.js --bundle --outfile=dist/state.min.js --watch"
+    "serve": "ws --port 5500 --rewrite '/examples/statejs-router((?!/views/|/controllers\\.js).*) -> /examples/statejs-router/index.html'",
+    "build": "npm run build-min && npm run build-esm && npm run build-router-min && npm run build-router-esm",
+    "build-min": "esbuild src/state.js --bundle --minify --sourcemap --outfile=dist/state.min.js",
+    "build-esm": "esbuild src/state.js --bundle --format=esm --outfile=dist/state.esm.js",
+    "build-router-min": "esbuild router/state-router.js --bundle --minify --sourcemap --outfile=dist/state-router.min.js",
+    "build-router-esm": "esbuild router/state-router.js --bundle --format=esm --outfile=dist/state-router.esm.js"
   }
 }

@@ -1,0 +1,23 @@
+<html>
+    <head>
+        <script src="/dist/state.min.js" defer></script>
+        <script src="/dist/state-router.min.js" defer></script>
+
+        <state-compose tag="app-home" src="/examples/statejs-router/views/home/home.html"></state-compose>
+        <state-compose tag="app-details" src="/examples/statejs-router/views/details/details.html"></state-compose>
+        <state-compose tag="app-about" src="/examples/statejs-router/views/about/about.html"></state-compose>
+        <state-compose tag="app-navbar" src="/examples/statejs-router/views/navbar/navbar.html"></state-compose>
+
+        <script type="module" src="/examples/statejs-router/controllers.js" defer></script>
+    </head>
+    <body>
+        <h1>Hello World!</h1>
+        <app-navbar></app-navbar>
+        <state-router>
+            <state-route path="/examples/statejs-router/details/:text" tag="app-details"></state-route>
+            <state-route path="/examples/statejs-router/about*" tag="app-about"></state-route>
+            <state-route path="/examples/statejs-router*" tag="app-home"></state-route>
+            <state-route-content></state-route-content>
+        </state-router>
+    </body>
+</html>
