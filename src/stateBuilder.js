@@ -222,7 +222,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
             passJsonPath = node.getAttribute('state-pass');
         }
         if (!isStateForeachItemScope) {
-            componentUpdates.set(node, loadView(state, node, passJsonPath.replace('@', absPath)));
+            componentUpdates.set(node, loadView(state, node, passJsonPath?.replace('@', absPath)));
             if (passJsonPath) {
                 registerBinding(state, passJsonPath.replace('@', absPath), 'state-pass', node);
             }
