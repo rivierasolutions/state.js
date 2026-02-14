@@ -1,4 +1,4 @@
-import { registerBinding, placeholderFactory, bindToOpenAttr, bindToValueAttr, loadView, buildJSONPath } from "./common";
+import { registerBinding, placeholderFactory, bindToOpenAttr, bindToValueAttr, loadView, buildJSONPath, ignoreMutations } from "./common";
 
 function domVisitor(rootElement, rootScope, composeTags, visit) {
 
@@ -131,6 +131,8 @@ function visitAndBuild(visitContext, state, componentUpdates) {
             node.setAttribute('state-scope', `${jsonPath.replace('@', absPath)}[]`);
             node.replaceWith(placeholder);
             placeholder.appendChild(node);
+            ignoreMutations(node);
+            ignoreMutations(placeholder.parentElement);
             visitContext.walker.currentNode = placeholder;
         }
 
@@ -210,6 +212,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
         if (!isStateForeachItemScope) {
             if (!node.hasAttribute("id")) {
                 node.setAttribute("id", `state-auto-id-${++(state._idSequence.next)}`);
+                ignoreMutations(node);
             }
             registerBinding(state, jsonPath.replace('@', absPath), 'state-listen', node);
         } else {

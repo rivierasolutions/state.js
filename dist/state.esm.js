@@ -44,8 +44,12 @@ function getJSONPath(root, path) {
 function placeholderFactory(attrs) {
   const placeholder = document.createElement("template");
   placeholder.setAttribute("state-placeholder", "");
+  placeholder.setAttribute("state-mutation-ignore", "");
   Object.keys(attrs).forEach((k) => placeholder.setAttribute(k, attrs[k]));
   return placeholder;
+}
+function ignoreMutations(element) {
+  element.setAttribute("state-mutation-ignore", "");
 }
 function registerBinding(state, absPath, type, element) {
   if (!state._bindings.has(absPath)) {
@@ -486,6 +490,8 @@ function visitAndBuild(visitContext, state, componentUpdates) {
       node.setAttribute("state-scope", `${jsonPath.replace("@", absPath)}[]`);
       node.replaceWith(placeholder);
       placeholder.appendChild(node);
+      ignoreMutations(node);
+      ignoreMutations(placeholder.parentElement);
       visitContext.walker.currentNode = placeholder;
     }
     if (isStateForeachItemScope) {
@@ -564,6 +570,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
     if (!isStateForeachItemScope) {
       if (!node.hasAttribute("id")) {
         node.setAttribute("id", `state-auto-id-${++state._idSequence.next}`);
+        ignoreMutations(node);
       }
       registerBinding(state, jsonPath.replace("@", absPath), "state-listen", node);
     } else {
@@ -633,6 +640,10 @@ function removeStateForeachItem(state, absPath, statForeachElement, existingItem
   function remove(el, index2) {
     Array.from(stateTemplate.keys()).map((path) => path.replace("@", `${absPath}[${index2}]`)).forEach((path) => unregisterBinding(state, path, el));
     el.remove();
+    ignoreMutations(el);
+    el.querySelectorAll("[state-root]").forEach((root) => {
+      root.state?.destroy();
+    });
   }
   if (index === void 0) {
     existingItemsQuery.forEach(remove);
@@ -648,6 +659,7 @@ function foreachStateItemFactory(state, absPath, statForeachElement, index, comp
   const stateForeachId = statForeachElement.getAttribute("id");
   domItem.setAttribute("state-foreach-id", stateForeachId);
   domItem.setAttribute("state-scope", `${absPath}[${index}]`);
+  ignoreMutations(domItem);
   const composeTags = state._stateForeachComposeTags.get(stateForeachId);
   if (composeTags) {
     Array.from(composeTags.entries()).flatMap(([composeTag, templatePathMap]) => Array.from(Array.from(templatePathMap.keys())).map((DOMPath) => [composeTag, DOMPath])).forEach(([composeTag, DOMPath]) => loadForeachListItemView(state, domItem, `${absPath}[${index}]`, DOMPath, componentUpdates));
@@ -668,6 +680,7 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
   const element = elementOrPath instanceof HTMLElement ? elementOrPath : elementOrPath.DOMPath.reduce((el, child) => el.children[child], elementOrPath.stateForeachItemRoot);
   if (stateType === "state-content") {
     element.textContent = stateValue;
+    ignoreMutations(element);
   } else if (stateType.startsWith("state-attr-")) {
     let attrName = stateType.replace("state-attr-", "");
     let bool = false;
@@ -695,6 +708,7 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
       element.setAttribute(attrName, stateValue);
     }
     setValueOrOpenAttr(element, attrName, boolNegated ? !stateValue : stateValue);
+    ignoreMutations(element);
   } else if (stateType.startsWith("state-class-")) {
     const className = stateType.replace("state-class-", "");
     if (className.endsWith("-if-not")) {
@@ -710,16 +724,20 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
         element.classList.remove(className.endsWith("-if") ? className.slice(0, -3) : className);
       }
     }
+    ignoreMutations(element);
   } else if (stateType === "state-if") {
     if (!stateValue && !element.hasAttribute("state-placeholder")) {
       const placeholder = placeholderFactory({ "state-if": element.getAttribute("state-if") });
       element.replaceWith(placeholder);
       placeholder.appendChild(element);
+      ignoreMutations(placeholder.parentElement);
       registerBinding(state, absPath, "state-if", placeholder);
       unregisterBinding(state, absPath, element, "state-if");
     } else if (stateValue && element.tagName === "TEMPLATE" && element.hasAttribute("state-placeholder")) {
       const content = element.firstElementChild;
       element.replaceWith(content);
+      ignoreMutations(element);
+      ignoreMutations(content.parentElement);
       registerBinding(state, absPath, "state-if", content);
       unregisterBinding(state, absPath, element, "state-if");
     }
@@ -728,11 +746,14 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
       const placeholder = placeholderFactory({ "state-if-not": element.getAttribute("state-if-not") });
       element.replaceWith(placeholder);
       placeholder.appendChild(element);
+      ignoreMutations(placeholder.parentElement);
       registerBinding(state, absPath, "state-if-not", placeholder);
       unregisterBinding(state, absPath, element, "state-if-not");
     } else if (!stateValue && element.tagName === "TEMPLATE" && element.hasAttribute("state-placeholder")) {
       const content = element.firstElementChild;
       element.replaceWith(content);
+      ignoreMutations(element);
+      ignoreMutations(content.parentElement);
       registerBinding(state, absPath, "state-if-not", content);
       unregisterBinding(state, absPath, element, "state-if-not");
     }
@@ -744,18 +765,21 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
       if (stateValue) {
         (Array.isArray(stateValue) ? stateValue : [stateValue]).map((item, index) => foreachStateItemFactory(state, absPath, element, index, componentUpdates)).reverse().forEach((el) => element.after(el));
       }
+      ignoreMutations(element.parentNode);
     } else {
       const srcLength = src?.length ?? 0;
       if (srcLength > stateValue.length) {
         Array.from(existingItemsQuery).slice(-1 * (srcLength - stateValue.length)).forEach((el, index) => {
           removeStateForeachItem(state, absPath, element, existingItemsQuery, srcLength - 1 - index);
         });
+        ignoreMutations(element.parentNode);
       } else if (srcLength < stateValue.length) {
         for (let i = 0; i < stateValue.length - srcLength; ++i) {
           const el = foreachStateItemFactory(state, absPath, element, srcLength + i, componentUpdates);
           const query = element.parentNode.querySelectorAll(`[state-foreach-id="${forEachId}"]`);
           (query.length ? Array.from(query).at(-1) : element).after(el);
         }
+        ignoreMutations(element.parentNode);
       }
     }
   } else if (stateType === "state-listen") {
@@ -776,6 +800,33 @@ function applyState(state, changes, componentLoads) {
     });
   }
   return Promise.allSettled(componentUpdates.values()).then((all) => all.filter((res) => res.status === "fulfilled" && res.value.at(1)).map((res) => res.value));
+}
+
+// src/mutationObserver.js
+function processMutation(state, mutation) {
+  const element = mutation.target;
+  console.log(`processing mutation for: ${element.tagName}, type: ${mutation.type}`);
+}
+function processMutations(state, mutations) {
+  const elementsToUnignore = /* @__PURE__ */ new Set();
+  mutations.forEach((m) => {
+    const element = m.target.nodeType === Node.ELEMENT_NODE ? m.target : m.target.parentElement;
+    if (!element) {
+      return;
+    }
+    if (m.type === "attributes" && m.attributeName === "state-mutation-ignore" && !m.target.hasAttribute("state-mutation-ignore")) {
+      return;
+    }
+    if (state.of(element) !== state._element) {
+      return;
+    }
+    if (element.hasAttribute("state-mutation-ignore")) {
+      elementsToUnignore.add(element);
+      return;
+    }
+    processMutation(state, m);
+  });
+  elementsToUnignore.forEach((el) => el.removeAttribute("state-mutation-ignore"));
 }
 
 // src/state.js
@@ -830,6 +881,21 @@ async function updateStateTree(rootElement, newState, origin) {
       create(element) {
         return load(element);
       },
+      destroy() {
+        this._bindings = /* @__PURE__ */ new Map();
+        this._initialBindings = /* @__PURE__ */ new Map();
+        this._composeTags = /* @__PURE__ */ new Map();
+        this._stateForeachItemBindings = /* @__PURE__ */ new Map();
+        this._stateForeachComposeTags = /* @__PURE__ */ new Map();
+        this._stateForeachScopes = /* @__PURE__ */ new Map();
+        this._listeners = /* @__PURE__ */ new Map();
+        this._mutationObserver.disconnect();
+        delete this._element.state;
+        this._element.dispatchEvent(new CustomEvent(`StateUnloaded`));
+      },
+      of(element) {
+        return element.closest("[state-root]") ?? document;
+      },
       contract(namespace = "Generated", className = "ViewState", wrap = true) {
         return wrap ? wrapContract(buildContract(this, className), namespace, className) : buildContract(this, className);
       }
@@ -847,8 +913,13 @@ async function updateStateTree(rootElement, newState, origin) {
     rootElement.state._stateForeachScopes = /* @__PURE__ */ new Map();
     rootElement.state._depth = 0;
     rootElement.state._listeners = /* @__PURE__ */ new Map();
+    rootElement.state._mutationObserver = new MutationObserver((m) => processMutations(rootElement.state, m));
+    rootElement.state._mutationObserver.observe(rootElement, { childList: true, subtree: true, attributes: true });
     if (rootElement === document) {
       rootElement.state._maxDepth = 20;
+    } else {
+      rootElement.setAttribute("state-root", "");
+      ignoreMutations(rootElement);
     }
     rootElement.querySelectorAll("state-compose").forEach((compose) => {
       const tag = compose.getAttribute("tag");

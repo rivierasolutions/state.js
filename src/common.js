@@ -44,8 +44,13 @@ function getJSONPath(root, path) {
 function placeholderFactory(attrs) {
     const placeholder = document.createElement('template');
     placeholder.setAttribute('state-placeholder', '');
+    placeholder.setAttribute('state-mutation-ignore', '');
     Object.keys(attrs).forEach(k => placeholder.setAttribute(k, attrs[k]));
     return placeholder;
+}
+
+function ignoreMutations(element) {
+    element.setAttribute('state-mutation-ignore', '');
 }
 
 function registerBinding(state, absPath, type, element) {
@@ -138,4 +143,4 @@ function loadView(state, element, absPath) {
         .then(() => [element,absPath,undefined]);
 }
 
-export { buildJSONPath, getJSONPath, registerBinding, unregisterBinding, placeholderFactory, bindToValueAttr, setValueOrOpenAttr, bindToOpenAttr, loadView };
+export { buildJSONPath, getJSONPath, registerBinding, unregisterBinding, placeholderFactory, bindToValueAttr, setValueOrOpenAttr, bindToOpenAttr, loadView, ignoreMutations };

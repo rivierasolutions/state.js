@@ -14,7 +14,7 @@ document.addEventListener('StateLoaded', () => {
     });
 
     subState.update({ 
-        stateArray: [ 
+        stateArray: [
             { text: 'aaa', numberArray: [{ number: 111 }], onRemove: { 'click': 'removeItem', context: { id: ++itemIdSequence } } },
             { text: 'bbb', numberArray: [{ number: 222, numberClass: 'red' }], onRemove: { 'click': 'removeItem', context: { id: ++itemIdSequence } } }
         ],
@@ -66,12 +66,16 @@ document.addEventListener('StateLoaded', () => {
     class MyComponent extends HTMLElement {
         connectedCallback() {
             this.addEventListener('StateLoaded', () => this.stateLoaded());
+            this.addEventListener('StateUnloaded', () => this.stateUnloaded());
         }
         stateLoaded() {
             if (!this.state.current().componentContent) {
                 this.state.update({ componentContent:  'Filled in by the component state!' });
             }
-            setInterval(() => this.state.update({ contentClass: this.state.current().contentClass ? null : 'red' }), 500);
+            this.interval = setInterval(() => this.state.update({ contentClass: this.state.current().contentClass ? null : 'red' }), 500);
+        }
+        stateUnloaded() {
+            clearInterval(this.interval);
         }
     }
     customElements.define('app-my-component', MyComponent);

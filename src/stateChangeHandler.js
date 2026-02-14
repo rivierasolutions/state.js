@@ -1,4 +1,4 @@
-import { loadView, bindToValueAttr, bindToOpenAttr, setValueOrOpenAttr, getJSONPath, unregisterBinding, registerBinding, placeholderFactory } from "./common";
+import { loadView, bindToValueAttr, bindToOpenAttr, setValueOrOpenAttr, getJSONPath, unregisterBinding, registerBinding, placeholderFactory, ignoreMutations } from "./common";
 
 function bindToStateListenAttr(state, element, previousStateValue, stateValue) {
     Object.keys(previousStateValue ?? {}).forEach(k => {
@@ -43,6 +43,10 @@ function removeStateForeachItem(state, absPath, statForeachElement, existingItem
     function remove(el, index) {
         Array.from(stateTemplate.keys()).map(path => path.replace('@', `${absPath}[${index}]`)).forEach(path => unregisterBinding(state, path, el));
         el.remove();
+        ignoreMutations(el);
+        el.querySelectorAll('[state-root]').forEach(root => {
+            root.state?.destroy();
+        });
     }
     if (index === undefined) {
         existingItemsQuery.forEach(remove);
@@ -59,6 +63,7 @@ function foreachStateItemFactory(state, absPath, statForeachElement, index, comp
     const stateForeachId = statForeachElement.getAttribute("id");
     domItem.setAttribute("state-foreach-id", stateForeachId);
     domItem.setAttribute('state-scope', `${absPath}[${index}]`);
+    ignoreMutations(domItem);
 
     const composeTags = state._stateForeachComposeTags.get(stateForeachId);
     if (composeTags) {
@@ -90,6 +95,7 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
 
     if (stateType === 'state-content') {    
         element.textContent = stateValue;
+        ignoreMutations(element);
     }
     else if (stateType.startsWith('state-attr-')) {
         let attrName = stateType.replace('state-attr-', '');
@@ -118,6 +124,7 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
             element.setAttribute(attrName, stateValue);
         }
         setValueOrOpenAttr(element, attrName, boolNegated ? !stateValue : stateValue);
+        ignoreMutations(element);
     }
     else if (stateType.startsWith('state-class-')) {
         const className = stateType.replace('state-class-', '');
@@ -134,6 +141,7 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
                 element.classList.remove(className.endsWith('-if') ? className.slice(0, -3) : className);
             }
         }
+        ignoreMutations(element);
     }
     else if (stateType === 'state-if') {
         if (!stateValue && !element.hasAttribute('state-placeholder')) {
@@ -141,6 +149,7 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
             const placeholder = placeholderFactory({ 'state-if': element.getAttribute('state-if') });
             element.replaceWith(placeholder);
             placeholder.appendChild(element);
+            ignoreMutations(placeholder.parentElement);
             registerBinding(state,absPath,'state-if',placeholder);
             unregisterBinding(state,absPath,element,'state-if');
 
@@ -148,6 +157,8 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
 
             const content = element.firstElementChild;
             element.replaceWith(content);
+            ignoreMutations(element);
+            ignoreMutations(content.parentElement);
             registerBinding(state,absPath,'state-if',content);
             unregisterBinding(state,absPath,element,'state-if');
         }
@@ -158,6 +169,7 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
             const placeholder = placeholderFactory({ 'state-if-not': element.getAttribute('state-if-not') });
             element.replaceWith(placeholder);
             placeholder.appendChild(element);
+            ignoreMutations(placeholder.parentElement);
             registerBinding(state,absPath,'state-if-not',placeholder);
             unregisterBinding(state,absPath,element,'state-if-not');
 
@@ -165,6 +177,8 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
 
             const content = element.firstElementChild;
             element.replaceWith(content);
+            ignoreMutations(element);
+            ignoreMutations(content.parentElement);
             registerBinding(state,absPath,'state-if-not',content);
             unregisterBinding(state,absPath,element,'state-if-not');
         }
@@ -180,18 +194,21 @@ function applyStateChange(state, absPath, elementOrPath, stateType, src, dst, co
                     .reverse()
                     .forEach(el => element.after(el));
             }
+            ignoreMutations(element.parentNode);
         } else {
             const srcLength = src?.length ?? 0;
             if (srcLength > stateValue.length) {
                 Array.from(existingItemsQuery).slice(-1*(srcLength - stateValue.length)).forEach((el, index) => {
                     removeStateForeachItem(state, absPath, element, existingItemsQuery, srcLength-1-index);
                 });
+                ignoreMutations(element.parentNode);
             } else if (srcLength < stateValue.length) {
                 for (let i=0; i<stateValue.length - srcLength; ++i) {
                     const el = foreachStateItemFactory(state, absPath, element, srcLength+i, componentUpdates);
                     const query = element.parentNode.querySelectorAll(`[state-foreach-id="${forEachId}"]`);
                     (query.length ? Array.from(query).at(-1) : element).after(el);
                 }
+                ignoreMutations(element.parentNode);
             }
         }
     }

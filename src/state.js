@@ -2,6 +2,8 @@ import { buildContract, wrapContract } from "./contractBuilder";
 import { mergeChanges } from './jsonMerger';
 import { buildState } from "./stateBuilder";
 import { applyState } from "./stateChangeHandler";
+import { processMutations } from "./mutationObserver";
+import { ignoreMutations } from "./common";
 
 async function updateStateTree(rootElement, newState, origin) {
 
@@ -58,6 +60,21 @@ async function updateStateTree(rootElement, newState, origin) {
             create(element) {
                 return load(element);
             },
+            destroy() {
+                this._bindings = new Map();
+                this._initialBindings = new Map();
+                this._composeTags = new Map();
+                this._stateForeachItemBindings = new Map();
+                this._stateForeachComposeTags = new Map();
+                this._stateForeachScopes = new Map();
+                this._listeners = new Map();
+                this._mutationObserver.disconnect();
+                delete(this._element.state);
+                this._element.dispatchEvent(new CustomEvent(`StateUnloaded`));
+            },
+            of(element) {
+                return element.closest('[state-root]') ?? document;
+            },
             contract(namespace = 'Generated', className = 'ViewState', wrap = true) {
                 return wrap ? wrapContract(buildContract(this, className), namespace, className) : buildContract(this, className);
             }
@@ -76,8 +93,13 @@ async function updateStateTree(rootElement, newState, origin) {
         rootElement.state._stateForeachScopes = new Map();
         rootElement.state._depth = 0;
         rootElement.state._listeners = new Map();
+        rootElement.state._mutationObserver = new MutationObserver((m) => processMutations(rootElement.state, m));
+        rootElement.state._mutationObserver.observe(rootElement, { childList: true, subtree: true, attributes: true });
         if (rootElement === document) {
             rootElement.state._maxDepth = 20;
+        } else {
+            rootElement.setAttribute('state-root', '');
+            ignoreMutations(rootElement);
         }
 
         rootElement.querySelectorAll("state-compose").forEach(compose => {
