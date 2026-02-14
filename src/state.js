@@ -61,6 +61,9 @@ async function updateStateTree(rootElement, newState, origin) {
                 return load(element);
             },
             destroy() {
+                if (this._element === document) {
+                    throw new Error('The root state cannot be destroyed.');
+                }
                 this._bindings = new Map();
                 this._initialBindings = new Map();
                 this._composeTags = new Map();

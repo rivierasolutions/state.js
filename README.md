@@ -861,6 +861,7 @@ even if `element` has a `state-ignore` attribute.
 
 Destroys the *View State* created at the DOM element `[element]`.  
 The `state` object of `[element]` will be deleted.  
+The root `state` object of the whole `document` cannot be destroyed. `document.state.destroy()` will always throw an error.
 Once the state is destroyed, the `StateUnloaded` DOM event will be dispatched from `[element]`.
 
 ### Return type
