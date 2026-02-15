@@ -75,6 +75,9 @@ function unregisterBinding(state, absPath, elementOrPath, stateType = undefined)
     } else {
         state._bindings.has(absPath) && state._bindings.get(absPath).delete(elementOrPath);
     }
+    if (!state._bindings.get(absPath).size) {
+        state._bindings.delete(absPath);
+    }
 }
 
 function bindToValueAttr(element, absPath, state) {
@@ -143,4 +146,178 @@ function loadView(state, element, absPath) {
         .then(() => [element,absPath,undefined]);
 }
 
-export { buildJSONPath, getJSONPath, registerBinding, unregisterBinding, placeholderFactory, bindToValueAttr, setValueOrOpenAttr, bindToOpenAttr, loadView, ignoreMutations };
+function domVisitor(state, rootElement, absPath, composeTags, visit) {
+
+    const walker = document.createTreeWalker(
+        rootElement,
+        NodeFilter.SHOW_ELEMENT,
+        {
+        acceptNode: (node) => node.hasAttribute('state-ignore') 
+                ? NodeFilter.FILTER_REJECT 
+                : ((node.hasAttribute('state-scope') 
+                || node.hasAttribute('state-if')
+                || node.hasAttribute('state-if-not')
+                || node.hasAttribute('state-foreach')
+                || node.hasAttribute('state-content')
+                || node.hasAttribute('state-listen')
+                || node.hasAttribute('state-root')
+                || composeTags.has(node.tagName)
+                || Array.from(node.attributes).find(a => a.name.startsWith('state-attr-') || a.name.startsWith('state-class-'))
+            )
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_SKIP)
+        }
+    );
+
+    const stack = [ { scope: state._current, scopeRootElement: state._element, absJsonPath: absPath, isStateForeachItemScope: false } ];
+
+    while (walker.nextNode()) {
+        const element = walker.currentNode;
+        while (true) {
+            const scopeTuple = stack[stack.length-1];
+            
+            if (scopeTuple.scopeRootElement !== element && scopeTuple.scopeRootElement.contains(element)) {
+                const newScopeAndElem = visit({ ...scopeTuple, walker, element });
+                if (newScopeAndElem && newScopeAndElem.scope && newScopeAndElem.scopeRootElement && newScopeAndElem.absJsonPath) {
+                    stack.push(newScopeAndElem);
+                }
+                break;
+            } else {
+                stack.pop();
+            }
+        }
+    }
+}
+
+function registerStateForeachScope(state, absPath) {
+    if (!state._stateForeachScopes.has(absPath)) {
+        state._stateForeachScopes.set(absPath, {});
+    }
+    return state._stateForeachScopes.get(absPath);
+}
+
+function unregisterStateForeachScope(state, absPath) {
+    state._stateForeachScopes.delete(absPath);
+}
+
+function registerStateForeachBinding(state, relPath, stateType, element, statForeachRootScope) {
+    const id = statForeachRootScope.parentElement.getAttribute('id');
+    if (!state._stateForeachItemBindings.has(id)) {
+        state._stateForeachItemBindings.set(id, new Map());
+    }
+    const itemBindings = state._stateForeachItemBindings.get(id);
+    if (!itemBindings.has(relPath)) {
+        itemBindings.set(relPath, new Map());
+    }
+    const path = [];
+    while (element && element !== statForeachRootScope) {
+        if (!element.parentElement) {
+            break;
+        }
+        const index = ((el) => { let index=0; while((el = el.previousElementSibling)) { ++index; } return index; })(element);
+        path.unshift(index);
+        element = element.parentElement;
+    }
+    if (!itemBindings.get(relPath).has(path)) {
+        itemBindings.get(relPath).set(path, []);
+    }
+    itemBindings.get(relPath).get(path).push(stateType);
+}
+
+function unregisterStateForeachBinding(state, relPath, stateType, element, statForeachRootScope) {
+    const id = statForeachRootScope.parentElement.getAttribute('id');
+    const itemBindings = state._stateForeachItemBindings.get(id)?.get(relPath);
+    if (!itemBindings) {
+        return;
+    }
+    const path = [];
+    while (element && element !== statForeachRootScope) {
+        if (!element.parentElement) {
+            break;
+        }
+        const index = ((el) => { let index=0; while((el = el.previousElementSibling)) { ++index; } return index; })(element);
+        path.unshift(index);
+        element = element.parentElement;
+    }
+    if (!itemBindings.get(relPath).has(path)) {
+        return;
+    }
+    const index = itemBindings.get(relPath).get(path).indexOf(stateType);
+    if (index > -1) {
+        itemBindings.get(relPath).get(path).splice(index, 1);
+    }
+    if (!itemBindings.get(relPath).get(path).length) {
+        itemBindings.get(relPath).delete(path);
+    }
+    if (!itemBindings.get(relPath).size) {
+        itemBindings.delete(relPath);
+    }
+    if (!state._stateForeachItemBindings.get(id).size) {
+        state._stateForeachItemBindings.delete(id);
+    }
+}
+
+function registerStateForeachComposeTag(state, composeTag, element, statForeachRootScope) {
+    const id = statForeachRootScope.parentElement.getAttribute('id');
+    if (!state._stateForeachComposeTags.has(id)) {
+        state._stateForeachComposeTags.set(id, new Map());
+    }
+    const itemBindings = state._stateForeachComposeTags.get(id);
+    if (!itemBindings.has(composeTag)) {
+        itemBindings.set(composeTag, new Set());
+    }
+    const path = [];
+    while (element && element !== statForeachRootScope) {
+        if (!element.parentElement) {
+            break;
+        }
+        const index = ((el) => { let index=0; while((el = el.previousElementSibling)) { ++index; } return index; })(element);
+        path.unshift(index);
+        element = element.parentElement;
+    }
+    itemBindings.get(composeTag).add(path);
+}
+
+function unregisterStateForeachComposeTag(state, composeTag, element, statForeachRootScope) {
+    const id = statForeachRootScope.parentElement.getAttribute('id');
+    const itemBindings = state._stateForeachComposeTags.get(id)?.get(composeTag);
+    if (!itemBindings) {
+        return;
+    }
+    const path = [];
+    while (element && element !== statForeachRootScope) {
+        if (!element.parentElement) {
+            break;
+        }
+        const index = ((el) => { let index=0; while((el = el.previousElementSibling)) { ++index; } return index; })(element);
+        path.unshift(index);
+        element = element.parentElement;
+    }
+    itemBindings.delete(path);
+    if (!itemBindings.size) {
+        state._stateForeachComposeTags.get(id).delete(composeTag);
+    }
+    if (!state._stateForeachComposeTags.get(id).size) {
+        state._stateForeachComposeTags.delete(id);
+    }
+}
+
+export { 
+    buildJSONPath,
+    getJSONPath,
+    registerBinding,
+    unregisterBinding,
+    placeholderFactory,
+    bindToValueAttr,
+    setValueOrOpenAttr,
+    bindToOpenAttr,
+    loadView,
+    ignoreMutations,
+    domVisitor,
+    registerStateForeachScope,
+    unregisterStateForeachScope,
+    registerStateForeachBinding,
+    unregisterStateForeachBinding,
+    registerStateForeachComposeTag,
+    unregisterStateForeachComposeTag
+};

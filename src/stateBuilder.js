@@ -1,98 +1,4 @@
-import { registerBinding, placeholderFactory, bindToOpenAttr, bindToValueAttr, loadView, buildJSONPath, ignoreMutations } from "./common";
-
-function domVisitor(rootElement, rootScope, composeTags, visit) {
-
-    const walker = document.createTreeWalker(
-        rootElement,
-        NodeFilter.SHOW_ELEMENT,
-        {
-        acceptNode: (node) => node.hasAttribute('state-ignore') 
-                ? NodeFilter.FILTER_REJECT 
-                : ((node.hasAttribute('state-scope') 
-                || node.hasAttribute('state-if')
-                || node.hasAttribute('state-if-not')
-                || node.hasAttribute('state-foreach')
-                || node.hasAttribute('state-content')
-                || node.hasAttribute('state-listen')
-                || composeTags.has(node.tagName)
-                || Array.from(node.attributes).find(a => a.name.startsWith('state-attr-') || a.name.startsWith('state-class-'))
-            )
-            ? NodeFilter.FILTER_ACCEPT
-            : NodeFilter.FILTER_SKIP)
-        }
-    );
-
-    const stack = [ { scope: rootScope, scopeRootElement: rootElement, absJsonPath: '$', isStateForeachItemScope: false } ];
-
-    while (walker.nextNode()) {
-        const element = walker.currentNode;
-        while (true) {
-            const scopeTuple = stack[stack.length-1];
-            
-            if (scopeTuple.scopeRootElement !== element && scopeTuple.scopeRootElement.contains(element)) {
-                const newScopeAndElem = visit({ ...scopeTuple, walker, element });
-                if (newScopeAndElem && newScopeAndElem.scope && newScopeAndElem.scopeRootElement && newScopeAndElem.absJsonPath) {
-                    stack.push(newScopeAndElem);
-                }
-                break;
-            } else {
-                stack.pop();
-            }
-        }
-    }
-}
-
-function registerStateForeachBinding(state, relPath, stateType, element, statForeachRootScope) {
-    const id = statForeachRootScope.parentElement.getAttribute('id');
-    if (!state._stateForeachItemBindings.has(id)) {
-        state._stateForeachItemBindings.set(id, new Map());
-    }
-    const itemBindings = state._stateForeachItemBindings.get(id);
-    if (!itemBindings.has(relPath)) {
-        itemBindings.set(relPath, new Map());
-    }
-    const path = [];
-    while (element && element !== statForeachRootScope) {
-        if (!element.parentElement) {
-            break;
-        }
-        const index = ((el) => { let index=0; while((el = el.previousElementSibling)) { ++index; } return index; })(element);
-        path.unshift(index);
-        element = element.parentElement;
-    }
-    if (!itemBindings.get(relPath).has(path)) {
-        itemBindings.get(relPath).set(path, []);
-    }
-    itemBindings.get(relPath).get(path).push(stateType);
-}
-
-function registerStateForeachComposeTag(state, composeTag, element, statForeachRootScope) {
-    const id = statForeachRootScope.parentElement.getAttribute('id');
-    if (!state._stateForeachComposeTags.has(id)) {
-        state._stateForeachComposeTags.set(id, new Map());
-    }
-    const itemBindings = state._stateForeachComposeTags.get(id);
-    if (!itemBindings.has(composeTag)) {
-        itemBindings.set(composeTag, new Set());
-    }
-    const path = [];
-    while (element && element !== statForeachRootScope) {
-        if (!element.parentElement) {
-            break;
-        }
-        const index = ((el) => { let index=0; while((el = el.previousElementSibling)) { ++index; } return index; })(element);
-        path.unshift(index);
-        element = element.parentElement;
-    }
-    itemBindings.get(composeTag).add(path);
-}
-
-function registerStateForeachScope(state, absPath) {
-    if (!state._stateForeachScopes.has(absPath)) {
-        state._stateForeachScopes.set(absPath, {});
-    }
-    return state._stateForeachScopes.get(absPath);
-}
+import { registerBinding, placeholderFactory, bindToOpenAttr, bindToValueAttr, loadView, buildJSONPath, ignoreMutations, domVisitor, registerStateForeachScope, registerStateForeachBinding, registerStateForeachComposeTag } from "./common";
 
 function visitAndBuild(visitContext, state, componentUpdates) {
     const node = visitContext.element;
@@ -137,7 +43,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
         }
 
         if (isStateForeachItemScope) {
-            registerStateForeachBinding(state, jsonPath, 'state-foreach', placeholder, scopeRootElement)
+            registerStateForeachBinding(state, jsonPath, 'state-foreach', placeholder, scopeRootElement);
         } else {
             registerBinding(state, jsonPath.replace('@', absPath), 'state-foreach', placeholder);
         }
@@ -149,7 +55,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
         if (!isStateForeachItemScope) {
             registerBinding(state, jsonPath.replace('@', absPath), 'state-if', node);
         } else {
-            registerStateForeachBinding(state, jsonPath, 'state-if', node, scopeRootElement)
+            registerStateForeachBinding(state, jsonPath, 'state-if', node, scopeRootElement);
         }
     }
     if (node.hasAttribute('state-if-not')) {
@@ -158,7 +64,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
         if (!isStateForeachItemScope) {
             registerBinding(state, jsonPath.replace('@', absPath), 'state-if-not', node);
         } else {
-            registerStateForeachBinding(state, jsonPath, 'state-if-not', node, scopeRootElement)
+            registerStateForeachBinding(state, jsonPath, 'state-if-not', node, scopeRootElement);
         }
     }
     if (node.hasAttribute('state-content')) {
@@ -240,7 +146,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
 }
 
 function buildState(rootElement, componentUpdates) {
-    domVisitor(rootElement, rootElement.state._current, rootElement.state._composeTags, (ctx) => visitAndBuild(ctx,rootElement.state,componentUpdates));
+    domVisitor(rootElement.state, rootElement, '$', rootElement.state._composeTags, (ctx) => visitAndBuild(ctx,rootElement.state,componentUpdates));
 }
 
 export { buildState };

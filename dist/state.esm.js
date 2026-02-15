@@ -128,6 +128,162 @@ function loadView(state, element, absPath) {
     }
   }).then(() => [element, absPath, void 0]);
 }
+function domVisitor(state, rootElement, absPath, composeTags, visit) {
+  const walker = document.createTreeWalker(
+    rootElement,
+    NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: (node) => node.hasAttribute("state-ignore") ? NodeFilter.FILTER_REJECT : node.hasAttribute("state-scope") || node.hasAttribute("state-if") || node.hasAttribute("state-if-not") || node.hasAttribute("state-foreach") || node.hasAttribute("state-content") || node.hasAttribute("state-listen") || node.hasAttribute("state-root") || composeTags.has(node.tagName) || Array.from(node.attributes).find((a) => a.name.startsWith("state-attr-") || a.name.startsWith("state-class-")) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
+    }
+  );
+  const stack = [{ scope: state._current, scopeRootElement: state._element, absJsonPath: absPath, isStateForeachItemScope: false }];
+  while (walker.nextNode()) {
+    const element = walker.currentNode;
+    while (true) {
+      const scopeTuple = stack[stack.length - 1];
+      if (scopeTuple.scopeRootElement !== element && scopeTuple.scopeRootElement.contains(element)) {
+        const newScopeAndElem = visit({ ...scopeTuple, walker, element });
+        if (newScopeAndElem && newScopeAndElem.scope && newScopeAndElem.scopeRootElement && newScopeAndElem.absJsonPath) {
+          stack.push(newScopeAndElem);
+        }
+        break;
+      } else {
+        stack.pop();
+      }
+    }
+  }
+}
+function registerStateForeachScope(state, absPath) {
+  if (!state._stateForeachScopes.has(absPath)) {
+    state._stateForeachScopes.set(absPath, {});
+  }
+  return state._stateForeachScopes.get(absPath);
+}
+function unregisterStateForeachScope(state, absPath) {
+  state._stateForeachScopes.delete(absPath);
+}
+function registerStateForeachBinding2(state, relPath, stateType, element, statForeachRootScope) {
+  const id = statForeachRootScope.parentElement.getAttribute("id");
+  if (!state._stateForeachItemBindings.has(id)) {
+    state._stateForeachItemBindings.set(id, /* @__PURE__ */ new Map());
+  }
+  const itemBindings = state._stateForeachItemBindings.get(id);
+  if (!itemBindings.has(relPath)) {
+    itemBindings.set(relPath, /* @__PURE__ */ new Map());
+  }
+  const path = [];
+  while (element && element !== statForeachRootScope) {
+    if (!element.parentElement) {
+      break;
+    }
+    const index = ((el) => {
+      let index2 = 0;
+      while (el = el.previousElementSibling) {
+        ++index2;
+      }
+      return index2;
+    })(element);
+    path.unshift(index);
+    element = element.parentElement;
+  }
+  if (!itemBindings.get(relPath).has(path)) {
+    itemBindings.get(relPath).set(path, []);
+  }
+  itemBindings.get(relPath).get(path).push(stateType);
+}
+function unregisterStateForeachBinding(state, relPath, stateType, element, statForeachRootScope) {
+  const id = statForeachRootScope.parentElement.getAttribute("id");
+  const itemBindings = state._stateForeachItemBindings.get(id)?.get(relPath);
+  if (!itemBindings) {
+    return;
+  }
+  const path = [];
+  while (element && element !== statForeachRootScope) {
+    if (!element.parentElement) {
+      break;
+    }
+    const index2 = ((el) => {
+      let index3 = 0;
+      while (el = el.previousElementSibling) {
+        ++index3;
+      }
+      return index3;
+    })(element);
+    path.unshift(index2);
+    element = element.parentElement;
+  }
+  if (!itemBindings.get(relPath).has(path)) {
+    return;
+  }
+  const index = itemBindings.get(relPath).get(path).indexOf(stateType);
+  if (index > -1) {
+    itemBindings.get(relPath).get(path).splice(index, 1);
+  }
+  if (!itemBindings.get(relPath).get(path).length) {
+    itemBindings.get(relPath).delete(path);
+  }
+  if (!itemBindings.get(relPath).size) {
+    itemBindings.delete(relPath);
+  }
+  if (!state._stateForeachItemBindings.get(id).size) {
+    state._stateForeachItemBindings.delete(id);
+  }
+}
+function registerStateForeachComposeTag(state, composeTag, element, statForeachRootScope) {
+  const id = statForeachRootScope.parentElement.getAttribute("id");
+  if (!state._stateForeachComposeTags.has(id)) {
+    state._stateForeachComposeTags.set(id, /* @__PURE__ */ new Map());
+  }
+  const itemBindings = state._stateForeachComposeTags.get(id);
+  if (!itemBindings.has(composeTag)) {
+    itemBindings.set(composeTag, /* @__PURE__ */ new Set());
+  }
+  const path = [];
+  while (element && element !== statForeachRootScope) {
+    if (!element.parentElement) {
+      break;
+    }
+    const index = ((el) => {
+      let index2 = 0;
+      while (el = el.previousElementSibling) {
+        ++index2;
+      }
+      return index2;
+    })(element);
+    path.unshift(index);
+    element = element.parentElement;
+  }
+  itemBindings.get(composeTag).add(path);
+}
+function unregisterStateForeachComposeTag(state, composeTag, element, statForeachRootScope) {
+  const id = statForeachRootScope.parentElement.getAttribute("id");
+  const itemBindings = state._stateForeachComposeTags.get(id)?.get(composeTag);
+  if (!itemBindings) {
+    return;
+  }
+  const path = [];
+  while (element && element !== statForeachRootScope) {
+    if (!element.parentElement) {
+      break;
+    }
+    const index = ((el) => {
+      let index2 = 0;
+      while (el = el.previousElementSibling) {
+        ++index2;
+      }
+      return index2;
+    })(element);
+    path.unshift(index);
+    element = element.parentElement;
+  }
+  itemBindings.delete(path);
+  if (!itemBindings.size) {
+    state._stateForeachComposeTags.get(id).delete(composeTag);
+  }
+  if (!state._stateForeachComposeTags.get(id).size) {
+    state._stateForeachComposeTags.delete(id);
+  }
+}
 
 // src/contractBuilder.js
 var stateDTs = `declare namespace StateJs {
@@ -373,92 +529,6 @@ function mergeChanges(state, changes) {
 }
 
 // src/stateBuilder.js
-function domVisitor(rootElement, rootScope, composeTags, visit) {
-  const walker = document.createTreeWalker(
-    rootElement,
-    NodeFilter.SHOW_ELEMENT,
-    {
-      acceptNode: (node) => node.hasAttribute("state-ignore") ? NodeFilter.FILTER_REJECT : node.hasAttribute("state-scope") || node.hasAttribute("state-if") || node.hasAttribute("state-if-not") || node.hasAttribute("state-foreach") || node.hasAttribute("state-content") || node.hasAttribute("state-listen") || composeTags.has(node.tagName) || Array.from(node.attributes).find((a) => a.name.startsWith("state-attr-") || a.name.startsWith("state-class-")) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
-    }
-  );
-  const stack = [{ scope: rootScope, scopeRootElement: rootElement, absJsonPath: "$", isStateForeachItemScope: false }];
-  while (walker.nextNode()) {
-    const element = walker.currentNode;
-    while (true) {
-      const scopeTuple = stack[stack.length - 1];
-      if (scopeTuple.scopeRootElement !== element && scopeTuple.scopeRootElement.contains(element)) {
-        const newScopeAndElem = visit({ ...scopeTuple, walker, element });
-        if (newScopeAndElem && newScopeAndElem.scope && newScopeAndElem.scopeRootElement && newScopeAndElem.absJsonPath) {
-          stack.push(newScopeAndElem);
-        }
-        break;
-      } else {
-        stack.pop();
-      }
-    }
-  }
-}
-function registerStateForeachBinding(state, relPath, stateType, element, statForeachRootScope) {
-  const id = statForeachRootScope.parentElement.getAttribute("id");
-  if (!state._stateForeachItemBindings.has(id)) {
-    state._stateForeachItemBindings.set(id, /* @__PURE__ */ new Map());
-  }
-  const itemBindings = state._stateForeachItemBindings.get(id);
-  if (!itemBindings.has(relPath)) {
-    itemBindings.set(relPath, /* @__PURE__ */ new Map());
-  }
-  const path = [];
-  while (element && element !== statForeachRootScope) {
-    if (!element.parentElement) {
-      break;
-    }
-    const index = ((el) => {
-      let index2 = 0;
-      while (el = el.previousElementSibling) {
-        ++index2;
-      }
-      return index2;
-    })(element);
-    path.unshift(index);
-    element = element.parentElement;
-  }
-  if (!itemBindings.get(relPath).has(path)) {
-    itemBindings.get(relPath).set(path, []);
-  }
-  itemBindings.get(relPath).get(path).push(stateType);
-}
-function registerStateForeachComposeTag(state, composeTag, element, statForeachRootScope) {
-  const id = statForeachRootScope.parentElement.getAttribute("id");
-  if (!state._stateForeachComposeTags.has(id)) {
-    state._stateForeachComposeTags.set(id, /* @__PURE__ */ new Map());
-  }
-  const itemBindings = state._stateForeachComposeTags.get(id);
-  if (!itemBindings.has(composeTag)) {
-    itemBindings.set(composeTag, /* @__PURE__ */ new Set());
-  }
-  const path = [];
-  while (element && element !== statForeachRootScope) {
-    if (!element.parentElement) {
-      break;
-    }
-    const index = ((el) => {
-      let index2 = 0;
-      while (el = el.previousElementSibling) {
-        ++index2;
-      }
-      return index2;
-    })(element);
-    path.unshift(index);
-    element = element.parentElement;
-  }
-  itemBindings.get(composeTag).add(path);
-}
-function registerStateForeachScope(state, absPath) {
-  if (!state._stateForeachScopes.has(absPath)) {
-    state._stateForeachScopes.set(absPath, {});
-  }
-  return state._stateForeachScopes.get(absPath);
-}
 function visitAndBuild(visitContext, state, componentUpdates) {
   const node = visitContext.element;
   let scope = visitContext.scope;
@@ -495,7 +565,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
       visitContext.walker.currentNode = placeholder;
     }
     if (isStateForeachItemScope) {
-      registerStateForeachBinding(state, jsonPath, "state-foreach", placeholder, scopeRootElement);
+      registerStateForeachBinding2(state, jsonPath, "state-foreach", placeholder, scopeRootElement);
     } else {
       registerBinding(state, jsonPath.replace("@", absPath), "state-foreach", placeholder);
     }
@@ -507,7 +577,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
     if (!isStateForeachItemScope) {
       registerBinding(state, jsonPath.replace("@", absPath), "state-if", node);
     } else {
-      registerStateForeachBinding(state, jsonPath, "state-if", node, scopeRootElement);
+      registerStateForeachBinding2(state, jsonPath, "state-if", node, scopeRootElement);
     }
   }
   if (node.hasAttribute("state-if-not")) {
@@ -516,7 +586,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
     if (!isStateForeachItemScope) {
       registerBinding(state, jsonPath.replace("@", absPath), "state-if-not", node);
     } else {
-      registerStateForeachBinding(state, jsonPath, "state-if-not", node, scopeRootElement);
+      registerStateForeachBinding2(state, jsonPath, "state-if-not", node, scopeRootElement);
     }
   }
   if (node.hasAttribute("state-content")) {
@@ -525,7 +595,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
     if (!isStateForeachItemScope) {
       registerBinding(state, jsonPath.replace("@", absPath), "state-content", node);
     } else {
-      registerStateForeachBinding(state, jsonPath, "state-content", node, scopeRootElement);
+      registerStateForeachBinding2(state, jsonPath, "state-content", node, scopeRootElement);
     }
   }
   Array.from(node.attributes).filter((attr) => attr.name.startsWith("state-attr-")).forEach((attr) => {
@@ -541,7 +611,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
     if (!isStateForeachItemScope) {
       registerBinding(state, jsonPath.replace("@", absPath), attr.name, node);
     } else {
-      registerStateForeachBinding(state, jsonPath, attr.name, node, scopeRootElement);
+      registerStateForeachBinding2(state, jsonPath, attr.name, node, scopeRootElement);
     }
     if (attrName === "value") {
       bindToValueAttr(node, jsonPath.replace("@", absPath), state);
@@ -562,7 +632,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
     if (!isStateForeachItemScope) {
       registerBinding(state, jsonPath.replace("@", absPath), attr.name, node);
     } else {
-      registerStateForeachBinding(state, jsonPath, attr.name, node, scopeRootElement);
+      registerStateForeachBinding2(state, jsonPath, attr.name, node, scopeRootElement);
     }
   });
   if (node.hasAttribute("state-listen")) {
@@ -574,7 +644,7 @@ function visitAndBuild(visitContext, state, componentUpdates) {
       }
       registerBinding(state, jsonPath.replace("@", absPath), "state-listen", node);
     } else {
-      registerStateForeachBinding(state, jsonPath, "state-listen", node, scopeRootElement);
+      registerStateForeachBinding2(state, jsonPath, "state-listen", node, scopeRootElement);
     }
   }
   if (state._composeTags.has(node.tagName)) {
@@ -590,14 +660,14 @@ function visitAndBuild(visitContext, state, componentUpdates) {
     } else {
       registerStateForeachComposeTag(state, node.tagName, node, scopeRootElement);
       if (passJsonPath) {
-        registerStateForeachBinding(state, passJsonPath, "state-pass", node, scopeRootElement);
+        registerStateForeachBinding2(state, passJsonPath, "state-pass", node, scopeRootElement);
       }
     }
   }
   return result;
 }
 function buildState(rootElement, componentUpdates) {
-  domVisitor(rootElement, rootElement.state._current, rootElement.state._composeTags, (ctx) => visitAndBuild(ctx, rootElement.state, componentUpdates));
+  domVisitor(rootElement.state, rootElement, "$", rootElement.state._composeTags, (ctx) => visitAndBuild(ctx, rootElement.state, componentUpdates));
 }
 
 // src/stateChangeHandler.js
@@ -803,9 +873,130 @@ function applyState(state, changes, componentLoads) {
 }
 
 // src/mutationObserver.js
+function lastInSubtree(element) {
+  let result = element;
+  while (result.lastElementChild) {
+    result = result.lastElementChild;
+  }
+  return result;
+}
+function scopeOf(element) {
+  const closest = element.closest("[state-root], [state-scope]");
+  return !closest || closest.hasAttribute("state-root") ? "$" : closest.getAttribute("state-scope");
+}
+function visitAndDestroy(visitContext, state) {
+  const node = visitContext.element;
+  let scope = visitContext.scope;
+  let scopeRootElement = visitContext.scopeRootElement;
+  let absPath = visitContext.absJsonPath;
+  let isStateForeachItemScope = visitContext.isStateForeachItemScope;
+  let result = void 0;
+  if (node.hasAttribute("state-scope")) {
+    const jsonPath = node.getAttribute("state-scope");
+    isStateForeachItemScope = node.parentElement?.tagName === "TEMPLATE" && node.parentElement?.hasAttribute("state-placeholder") && node.parentElement?.hasAttribute("state-foreach");
+    result = {
+      scope: isStateForeachItemScope ? scope : getJSONPath(state._current, jsonPath.replace("@", absPath), {}),
+      scopeRootElement: node,
+      absJsonPath: jsonPath.replace("@", absPath),
+      isStateForeachItemScope
+    };
+    scope = result.scope;
+    scopeRootElement = result.scopeRootElement;
+    absPath = result.absPath;
+  }
+  if (node.hasAttribute("state-foreach")) {
+    const jsonPath = node.getAttribute("state-foreach");
+    unregisterStateForeachScope(state, node.getAttribute("state-foreach").replace("@", absPath));
+    if (isStateForeachItemScope) {
+      unregisterStateForeachBinding(state, jsonPath, "state-foreach", node, scopeRootElement);
+    } else {
+      unregisterBinding(state, jsonPath.replace("@", absPath), node, "state-foreach");
+    }
+  }
+  if (node.hasAttribute("state-if")) {
+    const jsonPath = node.getAttribute("state-if");
+    if (!isStateForeachItemScope) {
+      unregisterBinding(state, jsonPath.replace("@", absPath), node, "state-if");
+    } else {
+      unregisterStateForeachBinding(state, jsonPath, "state-if", node, scopeRootElement);
+    }
+  }
+  if (node.hasAttribute("state-if-not")) {
+    const jsonPath = node.getAttribute("state-if-not");
+    if (!isStateForeachItemScope) {
+      unregisterBinding(state, jsonPath.replace("@", absPath), node, "state-if-not");
+    } else {
+      unregisterStateForeachBinding(state, jsonPath, "state-if-not", node, scopeRootElement);
+    }
+  }
+  if (node.hasAttribute("state-content")) {
+    const jsonPath = node.getAttribute("state-content");
+    if (!isStateForeachItemScope) {
+      unregisterBinding(state, jsonPath.replace("@", absPath), node, "state-content");
+    } else {
+      unregisterStateForeachBinding(state, jsonPath, "state-content", node, scopeRootElement);
+    }
+  }
+  Array.from(node.attributes).filter((attr) => attr.name.startsWith("state-attr-")).forEach((attr) => {
+    const jsonPath = attr.value;
+    if (!isStateForeachItemScope) {
+      unregisterBinding(state, jsonPath.replace("@", absPath), node, attr.name);
+    } else {
+      unregisterStateForeachBinding(state, jsonPath, attr.name, node, scopeRootElement);
+    }
+  });
+  Array.from(node.attributes).filter((attr) => attr.name.startsWith("state-class-")).forEach((attr) => {
+    const jsonPath = attr.value;
+    if (!isStateForeachItemScope) {
+      unregisterBinding(state, jsonPath.replace("@", absPath), node, attr.name);
+    } else {
+      registerStateForeachBinding(state, jsonPath, attr.name, node, scopeRootElement);
+    }
+  });
+  if (node.hasAttribute("state-listen")) {
+    const jsonPath = node.getAttribute("state-listen");
+    if (!isStateForeachItemScope) {
+      unregisterBinding(state, jsonPath.replace("@", absPath), node, "state-listen");
+    } else {
+      unregisterStateForeachBinding(state, jsonPath, "state-listen", node, scopeRootElement);
+    }
+  }
+  if (state._composeTags.has(node.tagName)) {
+    node.state?.destroy();
+    let passJsonPath = void 0;
+    if (node.hasAttribute("state-pass")) {
+      passJsonPath = node.getAttribute("state-pass");
+    }
+    if (!isStateForeachItemScope) {
+      if (passJsonPath) {
+        unregisterBinding(state, passJsonPath.replace("@", absPath), node, "state-pass");
+      }
+    } else {
+      unregisterStateForeachComposeTag(state, node.tagName, node, scopeRootElement);
+      if (passJsonPath) {
+        unregisterStateForeachBinding(state, passJsonPath, "state-pass", node, scopeRootElement);
+      }
+    }
+    visitContext.walker.currentNode = lastInSubtree(node);
+  }
+  if (node.hasAttribute("state-root") && !state._composeTags.has(node.tagName)) {
+    node.state?.destroy();
+    visitContext.walker.currentNode = lastInSubtree(node);
+  }
+  return result;
+}
+function elementRemoved(state, element, mutation) {
+  domVisitor(state, element, scopeOf(element), state._composeTags, (ctx) => visitAndDestroy(ctx, state));
+}
+function elementAdded(state, element, mutation) {
+}
 function processMutation(state, mutation) {
   const element = mutation.target;
   console.log(`processing mutation for: ${element.tagName}, type: ${mutation.type}`);
+  if (mutation.type === "childList") {
+    mutation.removedNodes.forEach((el) => elementRemoved(state, el, mutation));
+    mutation.addedNodes.forEach((el) => elementAdded(state, el, mutation));
+  }
 }
 function processMutations(state, mutations) {
   const elementsToUnignore = /* @__PURE__ */ new Set();
@@ -882,6 +1073,9 @@ async function updateStateTree(rootElement, newState, origin) {
         return load(element);
       },
       destroy() {
+        if (this._element === document) {
+          throw new Error("The root state cannot be destroyed.");
+        }
         this._bindings = /* @__PURE__ */ new Map();
         this._initialBindings = /* @__PURE__ */ new Map();
         this._composeTags = /* @__PURE__ */ new Map();
