@@ -847,6 +847,42 @@ When `[parent].state.create(element)` is called, the *View State* will be create
 even if `element` has a `state-ignore` attribute.
 
 ---
+### `[element].state.destroy()` (state object method)
+
+Destroys the *View State* created at the DOM element `[element]`.  
+The `state` object of `[element]` will be deleted.  
+Once the state is destroyed, the `StateUnloaded` DOM event will be dispatched from `[element]`.
+
+### Return type
+`void`
+
+#### Example:
+```javascript
+document.addEventListener('StateLoaded', async () => {
+
+    const myContainer = document.getElementById("container");
+
+    document.state.listener({
+        create,
+        destroy
+    });
+
+    document.state.update({
+        onCreateButton: { 'click': 'create' },
+        onDestroyButton: { 'click': 'destroy' },
+    });
+
+    function create() {
+        document.state.create(myContainer);
+    };
+
+    function destory() {
+        myContainer.state.destroy();
+    };
+});
+```
+
+---
 ### `[element].state.contract(namespace, className, wrap)` (state object method)
 
 Generates a .d.ts contract for this *View State* based on the `state-` attributes defined in the View.  
@@ -878,6 +914,13 @@ State attributes will resolve to the following types in the *View State* contrac
 
 Dispatched from a DOM element on which a *View State* is created, after the state has been created and finished loading.  
 Always dispatched from the `document` element after state.js has finished loading.  
+This event **does not bubble** up the DOM tree.
+
+---
+### `StateUnloaded` (DOM Event)
+
+Dispatched from a DOM element containing a *View State*, after that *View State* has been destroyed.  
+Once this event is called, the `state` object of the target element has already been deleted.
 This event **does not bubble** up the DOM tree.
 
 ---

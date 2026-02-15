@@ -632,6 +632,9 @@ function removeStateForeachItem(state, absPath, statForeachElement, existingItem
   const stateTemplate = state._stateForeachItemBindings.get(statForeachElement.getAttribute("id"));
   function remove(el, index2) {
     Array.from(stateTemplate.keys()).map((path) => path.replace("@", `${absPath}[${index2}]`)).forEach((path) => unregisterBinding(state, path, el));
+    el.querySelectorAll("[state-root]").forEach((root) => {
+      root.state?.destroy();
+    });
     el.remove();
   }
   if (index === void 0) {
@@ -830,6 +833,17 @@ async function updateStateTree(rootElement, newState, origin) {
       create(element) {
         return load(element);
       },
+      destroy() {
+        this._bindings = /* @__PURE__ */ new Map();
+        this._initialBindings = /* @__PURE__ */ new Map();
+        this._composeTags = /* @__PURE__ */ new Map();
+        this._stateForeachItemBindings = /* @__PURE__ */ new Map();
+        this._stateForeachComposeTags = /* @__PURE__ */ new Map();
+        this._stateForeachScopes = /* @__PURE__ */ new Map();
+        this._listeners = /* @__PURE__ */ new Map();
+        delete this._element.state;
+        this._element.dispatchEvent(new CustomEvent(`StateUnloaded`));
+      },
       contract(namespace = "Generated", className = "ViewState", wrap = true) {
         return wrap ? wrapContract(buildContract(this, className), namespace, className) : buildContract(this, className);
       }
@@ -849,6 +863,8 @@ async function updateStateTree(rootElement, newState, origin) {
     rootElement.state._listeners = /* @__PURE__ */ new Map();
     if (rootElement === document) {
       rootElement.state._maxDepth = 20;
+    } else {
+      rootElement.setAttribute("state-root", "");
     }
     rootElement.querySelectorAll("state-compose").forEach((compose) => {
       const tag = compose.getAttribute("tag");

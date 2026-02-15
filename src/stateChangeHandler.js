@@ -42,6 +42,9 @@ function removeStateForeachItem(state, absPath, statForeachElement, existingItem
     const stateTemplate = state._stateForeachItemBindings.get(statForeachElement.getAttribute("id"));
     function remove(el, index) {
         Array.from(stateTemplate.keys()).map(path => path.replace('@', `${absPath}[${index}]`)).forEach(path => unregisterBinding(state, path, el));
+        el.querySelectorAll('[state-root]').forEach(root => {
+            root.state?.destroy();
+        });
         el.remove();
     }
     if (index === undefined) {

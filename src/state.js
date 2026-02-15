@@ -58,6 +58,17 @@ async function updateStateTree(rootElement, newState, origin) {
             create(element) {
                 return load(element);
             },
+            destroy() {
+                this._bindings = new Map();
+                this._initialBindings = new Map();
+                this._composeTags = new Map();
+                this._stateForeachItemBindings = new Map();
+                this._stateForeachComposeTags = new Map();
+                this._stateForeachScopes = new Map();
+                this._listeners = new Map();
+                delete(this._element.state);
+                this._element.dispatchEvent(new CustomEvent(`StateUnloaded`));
+            },
             contract(namespace = 'Generated', className = 'ViewState', wrap = true) {
                 return wrap ? wrapContract(buildContract(this, className), namespace, className) : buildContract(this, className);
             }
@@ -78,6 +89,8 @@ async function updateStateTree(rootElement, newState, origin) {
         rootElement.state._listeners = new Map();
         if (rootElement === document) {
             rootElement.state._maxDepth = 20;
+        } else {
+            rootElement.setAttribute('state-root', '');
         }
 
         rootElement.querySelectorAll("state-compose").forEach(compose => {
@@ -103,7 +116,7 @@ async function updateStateTree(rootElement, newState, origin) {
 
             return rootElement.state;
         } else {
-            rootElement.dispatchEvent(new CustomEvent(`StateLoaded`))
+            rootElement.dispatchEvent(new CustomEvent(`StateLoaded`));
             return rootElement.state;
         }
     }
