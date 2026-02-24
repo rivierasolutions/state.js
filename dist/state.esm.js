@@ -849,7 +849,12 @@ function applyState(state, changes, componentLoads) {
       },
       create(element) {
         if (this._composeTags.has(element.tagName) && !element.hasAttribute("state-root")) {
-          return loadView(this, element, toAbsolutePath(element, element.getAttribute("state-pass"))).then(([el, absPath]) => this.update([{ jsonPath: absPath, value: el.state.current() }]).then(() => el.state));
+          return loadView(this, element, toAbsolutePath(element, element.getAttribute("state-pass"))).then(([el, absPath]) => {
+            if (el.getAttribute("state-pass")) {
+              registerBinding(this, absPath, "state-pass", el);
+            }
+            this.update([{ jsonPath: absPath, value: el.state.current() }]).then(() => el.state);
+          });
         }
         return load(element);
       },
@@ -861,6 +866,11 @@ function applyState(state, changes, componentLoads) {
         this._stateForeachComposeTags = /* @__PURE__ */ new Map();
         this._stateForeachScopes = /* @__PURE__ */ new Map();
         this._listeners = /* @__PURE__ */ new Map();
+        if (this._parentStateRoot) {
+          unregisterBinding(this._parentStateRoot.state, this._parentStateAbsPath, this._parentStateRoot, "state-pass");
+          this._parentStateRoot = void 0;
+          this._parentStateAbsPath = void 0;
+        }
         delete this._element.state;
         this._element.dispatchEvent(new CustomEvent(`StateUnloaded`));
       },

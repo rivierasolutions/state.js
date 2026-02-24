@@ -1,4 +1,4 @@
-import { loadView } from "./common";
+import { loadView, registerBinding, unregisterBinding } from "./common";
 import { buildContract, wrapContract } from "./contractBuilder";
 import { mergeChanges } from './jsonMerger';
 import { buildState } from "./stateBuilder";
@@ -76,7 +76,12 @@ import { applyState } from "./stateChangeHandler";
             create(element) {
                 if (this._composeTags.has(element.tagName) && !element.hasAttribute('state-root')) {
                     return loadView(this, element, toAbsolutePath(element, element.getAttribute('state-pass')))
-                        .then(([el,absPath]) => this.update([{ jsonPath: absPath, value: el.state.current() }]).then(() => el.state));
+                        .then(([el,absPath]) => {
+                            if (el.getAttribute('state-pass')) {
+                                registerBinding(this, absPath, 'state-pass', el);
+                            }
+                            this.update([{ jsonPath: absPath, value: el.state.current() }]).then(() => el.state)
+                        });
                 }
                 return load(element);
             },
@@ -88,6 +93,11 @@ import { applyState } from "./stateChangeHandler";
                 this._stateForeachComposeTags = new Map();
                 this._stateForeachScopes = new Map();
                 this._listeners = new Map();
+                if (this._parentStateRoot) {
+                    unregisterBinding(this._parentStateRoot.state, this._parentStateAbsPath, this._parentStateRoot, 'state-pass');
+                    this._parentStateRoot = undefined;
+                    this._parentStateAbsPath = undefined;
+                }
                 delete(this._element.state);
                 this._element.dispatchEvent(new CustomEvent(`StateUnloaded`));
             },
