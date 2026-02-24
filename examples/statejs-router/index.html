@@ -11,12 +11,12 @@
         <script type="module" src="/examples/statejs-router/controllers.js" defer></script>
     </head>
     <body>
-        <h1>Hello World!</h1>
+        <h1 state-content="@.header">Hello World!</h1>
         <app-navbar></app-navbar>
         <state-router>
-            <state-route path="/examples/statejs-router/details/:text" tag="app-details"></state-route>
-            <state-route path="/examples/statejs-router/about*" tag="app-about"></state-route>
-            <state-route path="/examples/statejs-router*" tag="app-home"></state-route>
+            <state-route path="/examples/statejs-router/details/:text" tag="app-details" state-pass="@.view"></state-route>
+            <state-route path="/examples/statejs-router/about*" tag="app-about" state-pass="@.view"></state-route>
+            <state-route path="/examples/statejs-router*" tag="app-home" state-pass="@.view"></state-route>
             <state-route-content></state-route-content>
         </state-router>
     </body>

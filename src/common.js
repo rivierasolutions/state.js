@@ -117,7 +117,8 @@ function loadView(state, element, absPath) {
         .then(html => {
             if (html) {
                 element.innerHTML = html;
-                return document.state.create(element);
+                element.setAttribute('state-root', '');
+                return state.create(element);
             } else {
                 return undefined;
             }

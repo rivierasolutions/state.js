@@ -1,41 +1,59 @@
+import { loadView } from "./common";
 import { buildContract, wrapContract } from "./contractBuilder";
 import { mergeChanges } from './jsonMerger';
 import { buildState } from "./stateBuilder";
 import { applyState } from "./stateChangeHandler";
 
-async function updateStateTree(rootElement, newState, origin) {
+(function polyfill() {
 
-    const statesToUpdate = [{ root: rootElement, update: newState, componentUpdates: undefined, origin }];
-    while(statesToUpdate.length) {
-        const next = statesToUpdate.pop();
-        if (next.componentUpdates) {
-            mergeChanges(next.root.state, next.componentUpdates.map(([el,absPath,update]) => ({ jsonPath: absPath, value: el.state.current() })));
-            next.root.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true, detail: { origin: next.origin } }));
-        } else {
-            const componentUpdates = (await applyState(next.root.state, mergeChanges(next.root.state, next.update)))
-                .filter(([el,absPath,update]) => update !== undefined && el.state);
-            statesToUpdate.push({ root: next.root, update: undefined, componentUpdates, origin: next.origin });
-            if (componentUpdates.length) {
-                statesToUpdate.push(...componentUpdates.map(([root,absPath,update]) => ({ root, update, componentUpdates: undefined, origin: `state-pass-down="${absPath}"` })));
+    async function updateStateTree(rootElement, newState, origin) {
+
+        const statesToUpdate = [{ root: rootElement, update: newState, componentUpdates: undefined, origin }];
+        while(statesToUpdate.length) {
+            const next = statesToUpdate.pop();
+            if (next.componentUpdates) {
+                mergeChanges(next.root.state, next.componentUpdates.map(([el,absPath,update]) => ({ jsonPath: absPath, value: el.state.current() })));
+                next.root.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true, detail: { origin: next.origin } }));
+            } else {
+                const componentUpdates = (await applyState(next.root.state, mergeChanges(next.root.state, next.update)))
+                    .filter(([el,absPath,update]) => update !== undefined && el.state);
+                statesToUpdate.push({ root: next.root, update: undefined, componentUpdates, origin: next.origin });
+                if (componentUpdates.length) {
+                    statesToUpdate.push(...componentUpdates.map(([root,absPath,update]) => ({ root, update, componentUpdates: undefined, origin: `state-pass-down="${absPath}"` })));
+                }
+            }
+        }
+        const parentsToUpdate = rootElement.state._parentStateRoot ? [rootElement] : [];
+        while (parentsToUpdate.length) {
+            const child = parentsToUpdate.shift();
+            const parent = child.state._parentStateRoot;
+            if (!parent.contains(child)) {
+                continue;
+            }
+            mergeChanges(parent.state, [{ jsonPath: child.state._parentStateAbsPath, value: child.state.current() }]);
+            parent.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true, detail: { origin: `state-pass-up="${child.state._parentStateAbsPath}"` } }));
+            if (parent.state?._parentStateRoot) {
+                parentsToUpdate.push(parent);
             }
         }
     }
-    const parentsToUpdate = rootElement.state._parentStateRoot ? [rootElement] : [];
-    while (parentsToUpdate.length) {
-        const child = parentsToUpdate.shift();
-        const parent = child.state._parentStateRoot;
-        if (!parent.contains(child)) {
-            continue;
-        }
-        mergeChanges(parent.state, [{ jsonPath: child.state._parentStateAbsPath, value: child.state.current() }]);
-        parent.dispatchEvent(new CustomEvent(`StateUpdated`, { bubbles: true, composed: true, detail: { origin: `state-pass-up="${child.state._parentStateAbsPath}"` } }));
-        if (parent.state?._parentStateRoot) {
-            parentsToUpdate.push(parent);
-        }
-    }
-}
 
-(function polyfill() {
+    function toAbsolutePath(element, path) {
+        if (!path || !path.startsWith('@')) {
+            return path;
+        }
+        let absPath = path;
+        let parent = element;
+        while (parent) {
+            const scope = parent.getAttribute('state-scope');
+            absPath = scope ? absPath.replace('@', scope) : absPath;
+            if (parent.hasAttribute('state-root')) {
+                break;
+            }
+            parent = parent.parentElement;
+        }
+        return absPath.replace('@', '$');
+    }
     
     async function load(rootElement) {
         rootElement.state = {
@@ -56,6 +74,10 @@ async function updateStateTree(rootElement, newState, origin) {
                 applyState(this);
             },
             create(element) {
+                if (this._composeTags.has(element.tagName) && !element.hasAttribute('state-root')) {
+                    return loadView(this, element, toAbsolutePath(element, element.getAttribute('state-pass')))
+                        .then(([el,absPath]) => this.update([{ jsonPath: absPath, value: el.state.current() }]).then(() => el.state));
+                }
                 return load(element);
             },
             destroy() {

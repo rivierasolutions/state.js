@@ -22,11 +22,15 @@ document.addEventListener("StateLoaded", () => {
     }
     window.history.pushState({}, "", window.location.pathname);
     allContentNodes2.forEach((el) => {
+      el.firstElementChild?.state?.destroy();
       el.innerHTML = "";
       const view = document.createElement(nextRoute.tag);
       view.setAttribute("state-route-params", JSON.stringify(params));
+      if (nextRoute.statePass) {
+        view.setAttribute("state-pass", nextRoute.statePass);
+      }
       el.appendChild(view);
-      document.state.create(el);
+      document.state.create(view);
     });
   }
   document.addEventListener("click", (event) => {
@@ -43,7 +47,8 @@ document.addEventListener("StateLoaded", () => {
       const routes = Array.from(this.querySelectorAll("state-route")).map((el) => ({
         path: el.getAttribute("path"),
         pattern: new RegExp(`^${el.getAttribute("path").replace(/\//g, "\\/").replace(/:[^\/]+/g, "([^\\/]+)").replace(/\*/g, "(.*)")}\\/?$`, "i"),
-        tag: el.getAttribute("tag")
+        tag: el.getAttribute("tag"),
+        statePass: el.getAttribute("state-pass")
       }));
       allRoutes.push(...routes);
       const contentNodes = Array.from(this.querySelectorAll("state-route-content"));
