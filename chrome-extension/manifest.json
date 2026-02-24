@@ -6,9 +6,17 @@
   "action": {
     "default_popup": "popup.html"
   },
-  "permissions": ["activeTab", "scripting", "sidePanel"],
+  "permissions": ["activeTab", "scripting", "sidePanel", "tabs"],
   "host_permissions": [
+    "http://localhost/*",
     "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"], 
+      "js": ["content_script.js"],
+      "run_at": "document_start"
+    }
   ],
   "side_panel": { "default_path": "popup.html" }
 }
